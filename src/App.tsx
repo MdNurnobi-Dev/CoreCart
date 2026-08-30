@@ -31,6 +31,7 @@ import AdminBanners from './pages/AdminBanners';
 import AdminHomeSettings from './pages/AdminHomeSettings';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminProducts from './pages/AdminProducts';
+import AdminReviews from './pages/AdminReviews';
 import AdminCategories from './pages/AdminCategories';
 import AdminOrders from './pages/AdminOrders';
 import AdminHelp from './pages/AdminHelp';
@@ -104,6 +105,7 @@ export default function App() {
                       <Route path="reports" element={<AdminAnalytics />} />
                       <Route path="categories" element={<AdminCategories />} />
                       <Route path="products" element={<AdminProducts />} />
+                      <Route path="reviews" element={<AdminReviews />} />
                       <Route path="product/new" element={<AdminProductForm />} />
                       <Route path="product/edit/:id" element={<AdminProductForm />} />
                       <Route path="discounts" element={<AdminDiscounts />} />

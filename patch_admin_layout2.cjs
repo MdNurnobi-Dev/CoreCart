@@ -1,10 +1,7 @@
 const fs = require('fs');
 let code = fs.readFileSync('src/components/AdminLayout.tsx', 'utf8');
 
-code = code.replace(
-  "['/admin/products', '/admin/product/new', '/admin/categories', '/admin/discounts']",
-  "['/admin/products', '/admin/product/new', '/admin/categories', '/admin/discounts', '/admin/reviews']"
-);
+const regex = /(<NavLink[\s\S]*?to="\/admin\/discounts"[\s\S]*?<\/NavLink>)/;
 
 const linkToAdd = `
                   <NavLink
@@ -14,22 +11,19 @@ const linkToAdd = `
                       \`flex items-center justify-between px-2 min-h-[26px] rounded-md text-[11px] font-medium transition-colors \${
                         isActive 
                           ? 'bg-blue-50 text-blue-700 font-semibold' 
-                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                       }\`
                     }
                   >
                     <div className="flex items-center gap-1.5">
-                      <Star className="w-3 h-3" />
+                      <Star className="w-3.5 h-3.5" />
                       <span>Reviews</span>
                     </div>
                   </NavLink>`;
 
-code = code.replace(
-  "<span>Discounts</span>\n                    </div>\n                  </NavLink>",
-  "<span>Discounts</span>\n                    </div>\n                  </NavLink>" + linkToAdd
-);
+code = code.replace(regex, "$1" + linkToAdd);
 
-if (!code.includes("import { Star")) {
+if (!code.includes("Star,")) {
     code = code.replace(
         "import { LayoutDashboard", 
         "import { Star, LayoutDashboard"

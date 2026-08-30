@@ -5,6 +5,7 @@ import AdminLogin from '../pages/AdminLogin';
 import { apiFetch } from '../lib/utils';
 import ErrorBoundary from './ErrorBoundary';
 import { 
+  Star,
   LayoutDashboard, 
   Package, 
   ShoppingCart, 
@@ -108,7 +109,7 @@ export default function AdminLayout() {
   }
 
   // Active group indicators
-  const isProductsActive = ['/admin/products', '/admin/product/new', '/admin/categories', '/admin/discounts'].some(path => location.pathname.startsWith(path));
+  const isProductsActive = ['/admin/products', '/admin/product/new', '/admin/categories', '/admin/discounts', '/admin/reviews'].some(path => location.pathname.startsWith(path));
   const isOrdersActive = ['/admin/orders', '/admin/manual-payments', '/admin/payment-gateways', '/admin/invoice-template'].some(path => location.pathname.startsWith(path));
   const isCommsActive = ['/admin/support-messages', '/admin/live-chat'].some(path => location.pathname.startsWith(path));
   const isNotificationsActive = ['/admin/notifications'].some(path => location.pathname.startsWith(path));
@@ -289,6 +290,22 @@ export default function AdminLayout() {
                     <span className="text-[9px] font-bold bg-rose-50 text-rose-600 px-1 py-0.2 rounded border border-rose-200">
                       %
                     </span>
+                  </NavLink>
+                  <NavLink
+                    to="/admin/reviews"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={({ isActive }) => 
+                      `flex items-center justify-between px-2 min-h-[26px] rounded-md text-[11px] font-medium transition-colors ${
+                        isActive 
+                          ? 'bg-blue-50 text-blue-700 font-semibold' 
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      }`
+                    }
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Star className="w-3.5 h-3.5" />
+                      <span>Reviews</span>
+                    </div>
                   </NavLink>
                 </div>
               )}

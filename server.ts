@@ -3784,6 +3784,85 @@ app.get('/api/chat-settings', async (req, res) => {
 });
 
 // Admin: Live Chat Settings
+
+// ==========================================
+// ADMIN: PRODUCT REVIEWS
+// ==========================================
+
+
+app.get('/api/admin/reviews/settings', authenticateAdmin, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT review_settings FROM settings LIMIT 1');
+    const settings = result.rows[0]?.review_settings || '{}';
+    res.json(typeof settings === 'string' ? JSON.parse(settings) : settings);
+  } catch (err: any) {
+    console.error('Failed to fetch review settings:', err);
+    res.status(500).json({ error: 'Failed to fetch review settings' });
+  }
+});
+
+app.put('/api/admin/reviews/settings', authenticateAdmin, async (req, res) => {
+  try {
+    const review_settings = JSON.stringify(req.body);
+    const result = await pool.query(
+      'UPDATE settings SET review_settings = $1 WHERE id = (SELECT id FROM settings LIMIT 1) RETURNING review_settings',
+      [review_settings]
+    );
+    if (result.rows.length === 0) {
+      // Create settings row if it doesn't exist
+      await pool.query('INSERT INTO settings (review_settings) VALUES ($1)', [review_settings]);
+    }
+    res.json(req.body);
+  } catch (err: any) {
+    console.error('Failed to update review settings:', err);
+    res.status(500).json({ error: 'Failed to update review settings' });
+  }
+});
+
+
+app.get('/api/admin/reviews', authenticateAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT pr.*, p.name as product_name, p.image_url as product_image
+      FROM product_reviews pr
+      LEFT JOIN products p ON pr.product_id = p.id
+      ORDER BY pr.created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (err: any) {
+    console.error('Failed to fetch reviews:', err);
+    res.status(500).json({ error: 'Failed to fetch reviews' });
+  }
+});
+
+app.put('/api/admin/reviews/:id/status', authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const result = await pool.query(
+      'UPDATE product_reviews SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
+      [status, id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Review not found' });
+    res.json(result.rows[0]);
+  } catch (err: any) {
+    console.error('Failed to update review status:', err);
+    res.status(500).json({ error: 'Failed to update review status' });
+  }
+});
+
+app.delete('/api/admin/reviews/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM product_reviews WHERE id = $1', [id]);
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error('Failed to delete review:', err);
+    res.status(500).json({ error: 'Failed to delete review' });
+  }
+});
+
+
 app.get('/api/admin/chat-settings', authenticateAdmin, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM chat_settings LIMIT 1');

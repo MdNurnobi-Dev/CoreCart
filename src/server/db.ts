@@ -555,6 +555,9 @@ export class UnifiedDatabase implements IDatabase {
         if (!settingsColNames.includes('notification_controls')) {
           await this.tursoClient.execute("ALTER TABLE settings ADD COLUMN notification_controls TEXT DEFAULT '{}'");
         }
+        if (!settingsColNames.includes('review_settings')) {
+          await this.tursoClient.execute("ALTER TABLE settings ADD COLUMN review_settings TEXT DEFAULT '{}'");
+        }
         if (!settingsColNames.includes('signup_method')) {
           await this.tursoClient.execute("ALTER TABLE settings ADD COLUMN signup_method TEXT DEFAULT 'none'");
         }
@@ -644,6 +647,7 @@ export class UnifiedDatabase implements IDatabase {
       ALTER TABLE settings ADD COLUMN IF NOT EXISTS linkedin_url TEXT;
       ALTER TABLE settings ADD COLUMN IF NOT EXISTS notification_controls TEXT DEFAULT '{}';
       ALTER TABLE settings ADD COLUMN IF NOT EXISTS signup_method VARCHAR(50) DEFAULT 'none';
+      ALTER TABLE settings ADD COLUMN IF NOT EXISTS review_settings TEXT DEFAULT '{}';
 
       CREATE TABLE IF NOT EXISTS custom_pages (
         id SERIAL PRIMARY KEY,
