@@ -133,9 +133,9 @@ export default function AdminLiveChat() {
     agent_title: 'Customer Care Agent',
     auto_reply_message: 'Thank you for reaching out! Our team has received your message and will respond shortly.',
     history_retention_days: 30,
-    telegram_bot_token: '8921887336:AAHFQg1uwLIHcyIp1ofAcqY7qMFeKaISCQQ',
-    telegram_chat_id: '-1004430526389',
-    telegram_bot_username: 'TechShop_Live_Support_bot',
+    telegram_bot_token: '',
+    telegram_chat_id: '',
+    telegram_bot_username: '',
     telegram_notifications_enabled: true,
     firebase_config: '{}',
     quick_flows: ''

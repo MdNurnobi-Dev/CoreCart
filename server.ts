@@ -3769,7 +3769,7 @@ app.get('/api/chat-settings', async (req, res) => {
         agent_name: 'TechShop Support',
         agent_title: 'Customer Care Agent',
         auto_reply_message: 'Thank you for reaching out! Our team has received your message on Telegram and will respond shortly.',
-        telegram_bot_username: 'TechShop_Live_Support_bot',
+        telegram_bot_username: '',
         quick_flows: DEFAULT_QUICK_FLOWS
       });
     }
@@ -3799,9 +3799,9 @@ app.get('/api/admin/chat-settings', authenticateAdmin, async (req, res) => {
           'Customer Care Agent',
           'Thank you for reaching out! Our team has received your message on Telegram and will respond shortly.',
           30,
-          '8921887336:AAHFQg1uwLIHcyIp1ofAcqY7qMFeKaISCQQ',
-          '-1004430526389',
-          'TechShop_Live_Support_bot',
+          '',
+          '',
+          '',
           true,
           $1
         ) RETURNING *
@@ -3888,8 +3888,8 @@ app.post('/api/chat/notify-telegram', async (req, res) => {
   try {
     const settingsRes = await pool.query('SELECT telegram_bot_token, telegram_chat_id, telegram_notifications_enabled FROM chat_settings LIMIT 1');
     const config = settingsRes.rows[0] || {
-      telegram_bot_token: '8921887336:AAHFQg1uwLIHcyIp1ofAcqY7qMFeKaISCQQ',
-      telegram_chat_id: '-1004430526389',
+      telegram_bot_token: '',
+      telegram_chat_id: '',
       telegram_notifications_enabled: true
     };
 
@@ -4031,8 +4031,8 @@ app.post('/api/chat/message', chatMessageLimiter, async (req, res) => {
       try {
         const settingsRes = await pool.query('SELECT telegram_bot_token, telegram_chat_id, telegram_notifications_enabled FROM chat_settings LIMIT 1');
         const config = settingsRes.rows[0] || {
-          telegram_bot_token: '8921887336:AAHFQg1uwLIHcyIp1ofAcqY7qMFeKaISCQQ',
-          telegram_chat_id: '-1004430526389',
+          telegram_bot_token: '',
+          telegram_chat_id: '',
           telegram_notifications_enabled: true
         };
 
