@@ -51,7 +51,17 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
-  const [settings, setSettings] = useState<Settings | null>(null);
+  const [settings, setSettings] = useState<Settings | null>(() => {
+    try {
+      const cached = localStorage.getItem('techshop_settings_cache');
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (e) {
+      console.error('Failed to parse cached settings', e);
+    }
+    return null;
+  });
   const [loading, setLoading] = useState(true);
 
   // Currency State
@@ -86,6 +96,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       if (res.ok) {
         const data = await res.json();
         setSettings(data);
+        localStorage.setItem('techshop_settings_cache', JSON.stringify(data));
+        
         if (data.site_name) {
           document.title = data.site_name;
         }
@@ -113,6 +125,15 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     fetchSettings();
   }, []);
+
+  // Prevent UI flashing with default values if we haven't loaded yet and have no cache
+  if (loading && !settings) {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+      </div>
+    );
+  }
 
   return (
     <SettingsContext.Provider value={{ 

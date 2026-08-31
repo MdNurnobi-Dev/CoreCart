@@ -1,68 +1,76 @@
 const fs = require('fs');
 let code = fs.readFileSync('src/pages/AdminBanners.tsx', 'utf8');
 
+// Add states and icons
+if (!code.includes('Upload')) {
+  code = code.replace(
+    "import { Plus, Edit2, Trash2, XCircle, CheckCircle, GripVertical } from 'lucide-react';",
+    "import { Plus, Edit2, Trash2, XCircle, CheckCircle, GripVertical, Upload, Loader2 } from 'lucide-react';"
+  );
+}
+
 code = code.replace(
-  "import { Plus, Edit2, Trash2, CheckCircle, XCircle } from 'lucide-react';",
-  "import { Plus, Edit2, Trash2, CheckCircle, XCircle, GripVertical } from 'lucide-react';"
+  'const [formData, setFormData]',
+  'const [uploadingImage, setUploadingImage] = useState(false);\n  const [formData, setFormData]'
 );
 
-const dndFunctions = `
-  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+const uploadFn = `
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    setDraggedIdx(index);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/html', e.currentTarget.parentNode);
-    e.dataTransfer.setDragImage(e.currentTarget.parentNode, 20, 20);
-  };
-
-  const handleDragOver = (index: number) => {
-    if (draggedIdx === null || draggedIdx === index) return;
-    
-    const newBanners = [...banners];
-    const draggedItem = newBanners[draggedIdx];
-    
-    newBanners.splice(draggedIdx, 1);
-    newBanners.splice(index, 0, draggedItem);
-    
-    const updated = newBanners.map((ban, idx) => ({ ...ban, sort_order: idx + 1 }));
-    setBanners(updated);
-    setDraggedIdx(index);
-  };
-
-  const handleDragEnd = async () => {
-    setDraggedIdx(null);
+    setUploadingImage(true);
+    const form = new FormData();
+    form.append('file', file);
     try {
-      const items = banners.map((ban) => ({ id: ban.id, sort_order: ban.sort_order }));
-      await apiFetch('/admin/banners/reorder', {
+      const data = await apiFetch('/admin/upload-image', {
         method: 'POST',
-        body: JSON.stringify({ items })
+        body: form,
       });
-      fetchBanners();
+      setFormData({ ...formData, image_url: data.secure_url });
     } catch (err) {
-      console.error(err);
+      console.error('Upload failed', err);
+      alert('Failed to upload image.');
+    } finally {
+      setUploadingImage(false);
     }
   };
 `;
 
 code = code.replace(
-  'const [loading, setLoading] = useState(true);',
-  'const [loading, setLoading] = useState(true);\n' + dndFunctions
+  'const handleSubmit = async',
+  uploadFn + '\n  const handleSubmit = async'
 );
 
-code = code.replace(
-  /<tr key=\{banner\.id\} className="hover:bg-slate-50 transition-colors">/g,
-  '<tr key={banner.id} className="hover:bg-slate-50 transition-colors cursor-move group" draggable onDragStart={(e) => handleDragStart(e, index)} onDragOver={(e) => { e.preventDefault(); handleDragOver(index); }} onDragEnd={handleDragEnd}>'
-);
+const oldImageInput = `<div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Image URL *</label>
+                <input type="url" required value={formData.image_url} onChange={e => setFormData({...formData, image_url: e.target.value})} className="w-full px-2 py-1.5 text-[12px] border border-slate-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" />
+              </div>`;
 
-code = code.replace(
-  '{banners.map((banner) => (',
-  '{banners.map((banner, index) => ('
-);
+const newImageInput = `<div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Image URL *</label>
+                <div className="flex items-center gap-2">
+                  <input type="url" required value={formData.image_url} onChange={e => setFormData({...formData, image_url: e.target.value})} className="flex-1 px-2 py-1.5 text-[12px] border border-slate-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="Image URL..." />
+                  <div className="relative">
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={handleImageUpload}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                      disabled={uploadingImage}
+                    />
+                    <button 
+                      type="button"
+                      disabled={uploadingImage}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded text-[11px] font-medium transition-colors disabled:opacity-50"
+                    >
+                      {uploadingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                      <span>Upload</span>
+                    </button>
+                  </div>
+                </div>
+              </div>`;
 
-code = code.replace(
-  '<td className="px-3 py-2 font-semibold text-slate-800">{banner.title}</td>',
-  '<td className="px-3 py-2 font-semibold text-slate-800 flex items-center gap-2"><GripVertical className="w-4 h-4 text-slate-400 group-hover:text-slate-600" /> {banner.title}</td>'
-);
+code = code.replace(oldImageInput, newImageInput);
 
 fs.writeFileSync('src/pages/AdminBanners.tsx', code);

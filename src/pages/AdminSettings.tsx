@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { apiFetch } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { 
@@ -26,7 +27,7 @@ import {
   Share2,
   Youtube,
   Linkedin,
-  Headphones
+  Headphones,
 } from 'lucide-react';
 
 export default function AdminSettings() {
@@ -34,6 +35,8 @@ export default function AdminSettings() {
   const { refreshSettings } = useSettings();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingFavicon, setUploadingFavicon] = useState(false);
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const logoFileInputRef = useRef<HTMLInputElement>(null);
@@ -114,12 +117,13 @@ export default function AdminSettings() {
   };
 
   // Handle Logo File Upload (FileReader Base64)
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      showToast('Please select a valid image file (PNG, JPG, SVG, WebP)', 'error');
+      showToast('Please select a valid image file', 'error');
       return;
     }
 
@@ -128,18 +132,24 @@ export default function AdminSettings() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        setSettings(prev => ({ ...prev, logo_url: event.target!.result as string }));
-        showToast('Logo image loaded successfully! Click Save Settings to apply.');
-      }
-    };
-    reader.readAsDataURL(file);
+    setUploadingLogo(true);
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const data = await apiFetch('/admin/upload-image', { method: 'POST', body: form });
+      setSettings(prev => ({ ...prev, logo_url: data.secure_url }));
+      showToast('Logo uploaded successfully!', 'success');
+    } catch (err) {
+      showToast('Failed to upload logo', 'error');
+    } finally {
+      setUploadingLogo(false);
+    }
   };
 
+
   // Handle Favicon File Upload (FileReader Base64)
-  const handleFaviconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  
+  const handleFaviconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -148,15 +158,20 @@ export default function AdminSettings() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        setSettings(prev => ({ ...prev, favicon_url: event.target!.result as string }));
-        showToast('Favicon loaded successfully! Click Save Settings to apply.');
-      }
-    };
-    reader.readAsDataURL(file);
+    setUploadingFavicon(true);
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const data = await apiFetch('/admin/upload-image', { method: 'POST', body: form });
+      setSettings(prev => ({ ...prev, favicon_url: data.secure_url }));
+      showToast('Favicon uploaded successfully!', 'success');
+    } catch (err) {
+      showToast('Failed to upload favicon', 'error');
+    } finally {
+      setUploadingFavicon(false);
+    }
   };
+
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -388,14 +403,25 @@ export default function AdminSettings() {
                   {/* URL Input */}
                   <div>
                     <label className="block text-[10.5px] font-medium text-gray-600 mb-0.5">Or Paste Logo Image URL</label>
-                    <input 
-                      type="text" 
-                      name="logo_url"
-                      value={settings.logo_url || ''}
-                      onChange={handleChange}
-                      placeholder="https://example.com/logo.png"
-                      className="w-full bg-white border border-gray-200 rounded-lg h-[28px] px-2 text-[11px] text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
-                    />
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="text" 
+                        name="logo_url"
+                        value={settings.logo_url || ''}
+                        onChange={handleChange}
+                        placeholder="https://example.com/logo.png"
+                        className="flex-1 bg-white border border-gray-200 rounded-lg h-[28px] px-2 text-[11px] text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => logoFileInputRef.current?.click()}
+                        disabled={uploadingLogo}
+                        className="flex items-center gap-1 px-2 h-[28px] bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-[10px] font-medium transition-colors disabled:opacity-50"
+                      >
+                        {uploadingLogo ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                        <span>Upload</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -450,14 +476,25 @@ export default function AdminSettings() {
                   {/* Favicon URL Input */}
                   <div>
                     <label className="block text-[10.5px] font-medium text-gray-600 mb-0.5">Or Paste Favicon URL</label>
-                    <input 
-                      type="text" 
-                      name="favicon_url"
-                      value={settings.favicon_url || ''}
-                      onChange={handleChange}
-                      placeholder="https://example.com/favicon.ico"
-                      className="w-full bg-white border border-gray-200 rounded-lg h-[28px] px-2 text-[11px] text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
-                    />
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="text" 
+                        name="favicon_url"
+                        value={settings.favicon_url || ''}
+                        onChange={handleChange}
+                        placeholder="https://example.com/favicon.ico"
+                        className="flex-1 bg-white border border-gray-200 rounded-lg h-[28px] px-2 text-[11px] text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => faviconFileInputRef.current?.click()}
+                        disabled={uploadingFavicon}
+                        className="flex items-center gap-1 px-2 h-[28px] bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-[10px] font-medium transition-colors disabled:opacity-50"
+                      >
+                        {uploadingFavicon ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                        <span>Upload</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

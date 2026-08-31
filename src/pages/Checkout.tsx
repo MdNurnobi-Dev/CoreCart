@@ -67,8 +67,9 @@ export default function Checkout() {
   const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
 
-  // Delivery method
-  const [deliverySpeed, setDeliverySpeed] = useState<'standard' | 'express'>('standard');
+  // Delivery method & region
+  const [deliveryRegion, setDeliveryRegion] = useState<'option1' | 'option2'>('option1');
+  const [deliverySpeed, setDeliverySpeed] = useState<'option1' | 'option2'>('option1');
 
   // Coupon / Promo Code
   const [couponCode, setCouponCode] = useState('');
@@ -91,6 +92,16 @@ export default function Checkout() {
   const [mfsNumber, setMfsNumber] = useState('');
   const [mfsTrxId, setMfsTrxId] = useState('');
   const [mfsProvider, setMfsProvider] = useState<'bKash' | 'Nagad' | 'Rocket'>('bKash');
+
+  // Checkout Form Config
+  const [formConfig, setFormConfig] = useState<any>(null);
+
+  useEffect(() => {
+    fetch('/api/checkout-form-settings')
+      .then(res => res.json())
+      .then(data => setFormConfig(data))
+      .catch(err => console.error('Failed to load checkout settings', err));
+  }, []);
 
   // Load user data and saved addresses if logged in
   useEffect(() => {
@@ -147,7 +158,9 @@ export default function Checkout() {
   };
 
   const subtotal = cart.reduce((acc, item) => acc + (Number(item.price) * item.quantity), 0);
-  const deliveryCost = deliverySpeed === 'express' ? 5 : 0;
+  const regionCost = formConfig?.deliveryRegion?.visible === false ? 0 : (deliveryRegion === 'option1' ? Number(formConfig?.deliveryRegion?.option1Price || 0) : Number(formConfig?.deliveryRegion?.option2Price || 0));
+  const speedCost = formConfig?.shippingMethod?.visible === false ? 0 : (deliverySpeed === 'option1' ? Number(formConfig?.shippingMethod?.option1Price || 0) : Number(formConfig?.shippingMethod?.option2Price || 0));
+  const deliveryCost = regionCost + speedCost;
   const netTotal = Math.max(0, subtotal - discountAmount + deliveryCost);
 
   const [applyingCoupon, setApplyingCoupon] = useState(false);
@@ -190,10 +203,24 @@ export default function Checkout() {
 
   const handleShippingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!shipping.fullName.trim() || !shipping.address.trim() || !shipping.city.trim() || !shipping.phone.trim()) {
-      setError('Please fill in all mandatory delivery fields (*)');
-      return;
+    
+    // Dynamic validation
+    if (formConfig) {
+      if (formConfig.name?.required && !shipping.fullName.trim()) return setError('Please fill in Full Name');
+      if (formConfig.phone?.required && !shipping.phone.trim()) return setError('Please fill in Phone Number');
+      if (formConfig.email?.required && !shipping.email.trim()) return setError('Please fill in Email Address');
+      if (formConfig.city?.required && !shipping.city.trim()) return setError('Please fill in City');
+      if (formConfig.address?.required && !shipping.address.trim()) return setError('Please fill in Address');
+      if (formConfig.district?.required && !shipping.stateDistrict.trim()) return setError('Please fill in District / Zone');
+      if (formConfig.zip?.required && !shipping.postalCode.trim()) return setError('Please fill in Postal Code');
+      if (formConfig.notes?.required && !shipping.deliveryNote.trim()) return setError('Please fill in Delivery Note');
+    } else {
+      if (!shipping.fullName.trim() || !shipping.address.trim() || !shipping.city.trim() || !shipping.phone.trim()) {
+        setError('Please fill in all mandatory delivery fields (*)');
+        return;
+      }
     }
+    
     setError('');
     setStep(2);
   };
@@ -214,11 +241,12 @@ export default function Checkout() {
       category: item.category
     }));
 
-    const formattedAddress = `${shipping.address}, ${shipping.city}${shipping.stateDistrict ? `, ${shipping.stateDistrict}` : ''} ${shipping.postalCode}, ${shipping.country} (Phone: ${shipping.phone})${shipping.deliveryNote ? ` [Note: ${shipping.deliveryNote}]` : ''}`;
+    const formattedAddress = `${shipping.address}, ${shipping.city}${shipping.stateDistrict ? `, ${shipping.stateDistrict}` : ''} ${shipping.postalCode}, ${shipping.country} (Phone: ${shipping.phone})${shipping.email ? ` (Email: ${shipping.email})` : ''}${shipping.deliveryNote ? ` [Note: ${shipping.deliveryNote}]` : ''}`;
 
     const paymentDetailsPayload: any = {
       method: paymentMethod,
-      deliverySpeed: deliverySpeed
+      deliverySpeed: formConfig?.shippingMethod?.visible === false ? 'None' : (deliverySpeed === 'option1' ? formConfig?.shippingMethod?.option1Label : formConfig?.shippingMethod?.option2Label),
+      deliveryRegion: formConfig?.deliveryRegion?.visible === false ? 'None' : (deliveryRegion === 'option1' ? formConfig?.deliveryRegion?.option1Label : formConfig?.deliveryRegion?.option2Label)
     };
 
     if (paymentMethod === 'bKash / Mobile Banking') {
@@ -455,157 +483,236 @@ export default function Checkout() {
                       )}
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        <div>
-                          <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                            Full Name <span className="text-rose-500">*</span>
-                          </label>
-                          <div className="relative">
-                            <User className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                            <input
-                              required
-                              type="text"
-                              value={shipping.fullName}
-                              onChange={(e) => setShipping({...shipping, fullName: e.target.value})}
-                              placeholder="e.g. John Doe"
-                              className="w-full h-8 bg-slate-50/60 border border-slate-200 rounded-md pl-8 pr-2.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium"
-                            />
+                        {(!formConfig || formConfig.name?.visible) && (
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                              {formConfig?.name?.label || 'Full Name'} {(!formConfig || formConfig.name?.required) && <span className="text-rose-500">*</span>}
+                            </label>
+                            <div className="relative">
+                              <User className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                              <input
+                                required={!formConfig || formConfig.name?.required}
+                                type="text"
+                                value={shipping.fullName}
+                                onChange={(e) => setShipping({...shipping, fullName: e.target.value})}
+                                placeholder={`e.g. John Doe`}
+                                className="w-full h-8 bg-slate-50/60 border border-slate-200 rounded-md pl-8 pr-2.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium"
+                              />
+                            </div>
                           </div>
-                        </div>
+                        )}
 
-                        <div>
-                          <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                            Phone Number <span className="text-rose-500">*</span>
-                          </label>
-                          <div className="relative">
-                            <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                            <input
-                              required
-                              type="tel"
-                              value={shipping.phone}
-                              onChange={(e) => setShipping({...shipping, phone: e.target.value})}
-                              placeholder="e.g. +1 234 567 8900"
-                              className="w-full h-8 bg-slate-50/60 border border-slate-200 rounded-md pl-8 pr-2.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium"
-                            />
+                        {(!formConfig || formConfig.phone?.visible) && (
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                              {formConfig?.phone?.label || 'Phone Number'} {(!formConfig || formConfig.phone?.required) && <span className="text-rose-500">*</span>}
+                            </label>
+                            <div className="relative">
+                              <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                              <input
+                                required={!formConfig || formConfig.phone?.required}
+                                type="tel"
+                                value={shipping.phone}
+                                onChange={(e) => setShipping({...shipping, phone: e.target.value})}
+                                placeholder="e.g. +1 234 567 8900"
+                                className="w-full h-8 bg-slate-50/60 border border-slate-200 rounded-md pl-8 pr-2.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium"
+                              />
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {(!formConfig || formConfig.email?.visible) && (
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                              {formConfig?.email?.label || 'Email Address'} {formConfig?.email?.required && <span className="text-rose-500">*</span>} {!formConfig?.email?.required && <span className="text-slate-400">(optional)</span>}
+                            </label>
+                            <div className="relative">
+                              <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                              <input
+                                required={formConfig?.email?.required}
+                                type="email"
+                                value={shipping.email}
+                                onChange={(e) => setShipping({...shipping, email: e.target.value})}
+                                placeholder="e.g. john@example.com"
+                                className="w-full h-8 bg-slate-50/60 border border-slate-200 rounded-md pl-8 pr-2.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {(!formConfig || formConfig.city?.visible) && (
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                              {formConfig?.city?.label || 'City'} {(!formConfig || formConfig.city?.required) && <span className="text-rose-500">*</span>}
+                            </label>
+                            <input
+                              required={!formConfig || formConfig.city?.required}
+                              type="text"
+                              value={shipping.city}
+                              onChange={(e) => setShipping({...shipping, city: e.target.value})}
+                              placeholder={`e.g. Dhaka / New York`}
+                              className="w-full h-8 bg-slate-50/60 border border-slate-200 rounded-md px-2.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {(!formConfig || formConfig.address?.visible) && (
                         <div>
                           <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                            Email Address <span className="text-slate-400">(for receipt)</span>
+                            {formConfig?.address?.label || 'Street Address'} {(!formConfig || formConfig.address?.required) && <span className="text-rose-500">*</span>}
                           </label>
                           <div className="relative">
-                            <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                            <input
-                              type="email"
-                              value={shipping.email}
-                              onChange={(e) => setShipping({...shipping, email: e.target.value})}
-                              placeholder="e.g. john@example.com"
-                              className="w-full h-8 bg-slate-50/60 border border-slate-200 rounded-md pl-8 pr-2.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium"
+                            <MapPin className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
+                            <textarea
+                              required={!formConfig || formConfig.address?.required}
+                              rows={2}
+                              value={shipping.address}
+                              onChange={(e) => setShipping({...shipping, address: e.target.value})}
+                              placeholder="House No, Road No, Area, Landmark..."
+                              className="w-full bg-slate-50/60 border border-slate-200 rounded-md pl-8 pr-2.5 py-1.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium resize-none leading-relaxed"
                             />
                           </div>
                         </div>
-
-                        <div>
-                          <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                            City / District <span className="text-rose-500">*</span>
-                          </label>
-                          <input
-                            required
-                            type="text"
-                            value={shipping.city}
-                            onChange={(e) => setShipping({...shipping, city: e.target.value})}
-                            placeholder="e.g. Dhaka / New York"
-                            className="w-full h-8 bg-slate-50/60 border border-slate-200 rounded-md px-2.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                          Street Address <span className="text-rose-500">*</span>
-                        </label>
-                        <div className="relative">
-                          <MapPin className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
-                          <textarea
-                            required
-                            rows={2}
-                            value={shipping.address}
-                            onChange={(e) => setShipping({...shipping, address: e.target.value})}
-                            placeholder="House No, Road No, Area, Landmark..."
-                            className="w-full bg-slate-50/60 border border-slate-200 rounded-md pl-8 pr-2.5 py-1.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium resize-none leading-relaxed"
-                          />
-                        </div>
-                      </div>
+                      )}
 
                       <div className="grid grid-cols-2 gap-2.5">
-                        <div>
-                          <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                            Postal Code
-                          </label>
-                          <input
-                            type="text"
-                            value={shipping.postalCode}
-                            onChange={(e) => setShipping({...shipping, postalCode: e.target.value})}
-                            placeholder="e.g. 1205"
-                            className="w-full h-8 bg-slate-50/60 border border-slate-200 rounded-md px-2.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium"
-                          />
-                        </div>
+                        {formConfig?.district?.visible && (
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                              {formConfig?.district?.label || 'District / Zone'} {formConfig?.district?.required && <span className="text-rose-500">*</span>}
+                            </label>
+                            <input
+                              required={formConfig?.district?.required}
+                              type="text"
+                              value={shipping.stateDistrict}
+                              onChange={(e) => setShipping({...shipping, stateDistrict: e.target.value})}
+                              placeholder="e.g. Uttara"
+                              className="w-full h-8 bg-slate-50/60 border border-slate-200 rounded-md px-2.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium"
+                            />
+                          </div>
+                        )}
 
-                        <div>
-                          <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                            Delivery Note <span className="text-slate-400">(optional)</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={shipping.deliveryNote}
-                            onChange={(e) => setShipping({...shipping, deliveryNote: e.target.value})}
-                            placeholder="e.g. Ring bell, leave at door"
-                            className="w-full h-8 bg-slate-50/60 border border-slate-200 rounded-md px-2.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium"
-                          />
-                        </div>
+                        {(!formConfig || formConfig.zip?.visible) && (
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                              {formConfig?.zip?.label || 'Postal Code'} {formConfig?.zip?.required && <span className="text-rose-500">*</span>}
+                            </label>
+                            <input
+                              required={formConfig?.zip?.required}
+                              type="text"
+                              value={shipping.postalCode}
+                              onChange={(e) => setShipping({...shipping, postalCode: e.target.value})}
+                              placeholder="e.g. 1205"
+                              className="w-full h-8 bg-slate-50/60 border border-slate-200 rounded-md px-2.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium"
+                            />
+                          </div>
+                        )}
+
+                        {(!formConfig || formConfig.notes?.visible) && (
+                          <div className={!formConfig || (formConfig.district?.visible === false && formConfig.zip?.visible === false) ? 'col-span-2' : ''}>
+                            <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                              {formConfig?.notes?.label || 'Delivery Note'} {formConfig?.notes?.required && <span className="text-rose-500">*</span>} {!formConfig?.notes?.required && <span className="text-slate-400">(optional)</span>}
+                            </label>
+                            <input
+                              required={formConfig?.notes?.required}
+                              type="text"
+                              value={shipping.deliveryNote}
+                              onChange={(e) => setShipping({...shipping, deliveryNote: e.target.value})}
+                              placeholder="e.g. Ring bell, leave at door"
+                              className="w-full h-8 bg-slate-50/60 border border-slate-200 rounded-md px-2.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium"
+                            />
+                          </div>
+                        )}
                       </div>
+
+                      {/* Delivery Region Selector */}
+                      {(!formConfig || formConfig.deliveryRegion?.visible !== false) && (
+                        <div className="pt-1.5">
+                          <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                            {formConfig?.deliveryRegion?.label || 'Delivery Region'}
+                          </label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setDeliveryRegion('option1')}
+                              className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
+                                deliveryRegion === 'option1'
+                                  ? 'border-blue-600 bg-blue-50/50 ring-1 ring-blue-600'
+                                  : 'border-slate-200 bg-white hover:border-slate-300'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-semibold text-slate-900 text-xs">{formConfig?.deliveryRegion?.option1Label || 'Option 1'}</span>
+                                <span className={`text-[10px] font-medium px-1.5 py-0.2 rounded ${(formConfig?.deliveryRegion?.option1Price || 0) === 0 ? 'bg-emerald-100 text-emerald-800' : 'text-slate-700 bg-slate-100'}`}>
+                                  {(formConfig?.deliveryRegion?.option1Price || 0) === 0 ? 'FREE' : `${currency}${formConfig?.deliveryRegion?.option1Price}`}
+                                </span>
+                              </div>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeliveryRegion('option2')}
+                              className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
+                                deliveryRegion === 'option2'
+                                  ? 'border-blue-600 bg-blue-50/50 ring-1 ring-blue-600'
+                                  : 'border-slate-200 bg-white hover:border-slate-300'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-semibold text-slate-900 text-xs">{formConfig?.deliveryRegion?.option2Label || 'Option 2'}</span>
+                                <span className={`text-[10px] font-semibold ${(formConfig?.deliveryRegion?.option2Price || 0) === 0 ? 'bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded' : 'text-slate-700'}`}>
+                                  {(formConfig?.deliveryRegion?.option2Price || 0) === 0 ? 'FREE' : `${currency}${formConfig?.deliveryRegion?.option2Price}`}
+                                </span>
+                              </div>
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Delivery Speed Selector */}
-                      <div className="pt-1.5">
-                        <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
-                          Shipping Method
-                        </label>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setDeliverySpeed('standard')}
-                            className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
-                              deliverySpeed === 'standard'
-                                ? 'border-blue-600 bg-blue-50/50 ring-1 ring-blue-600'
-                                : 'border-slate-200 bg-white hover:border-slate-300'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="font-semibold text-slate-900 text-xs">Standard Delivery</span>
-                              <span className="text-[10px] font-medium px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">FREE</span>
-                            </div>
-                            <p className="text-[10px] text-slate-500 mt-0.5">Estimated 2-3 Business Days</p>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setDeliverySpeed('express')}
-                            className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
-                              deliverySpeed === 'express'
-                                ? 'border-blue-600 bg-blue-50/50 ring-1 ring-blue-600'
-                                : 'border-slate-200 bg-white hover:border-slate-300'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="font-semibold text-slate-900 text-xs">Priority Express</span>
-                              <span className="text-[10px] font-semibold text-slate-700">{currency}5.00</span>
-                            </div>
-                            <p className="text-[10px] text-slate-500 mt-0.5">Guaranteed 24-Hour Dispatch</p>
-                          </button>
+                      {(!formConfig || formConfig.shippingMethod?.visible !== false) && (
+                        <div className="pt-1.5">
+                          <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                            {formConfig?.shippingMethod?.label || 'Shipping Method'}
+                          </label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setDeliverySpeed('option1')}
+                              className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
+                                deliverySpeed === 'option1'
+                                  ? 'border-blue-600 bg-blue-50/50 ring-1 ring-blue-600'
+                                  : 'border-slate-200 bg-white hover:border-slate-300'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-semibold text-slate-900 text-xs">{formConfig?.shippingMethod?.option1Label || 'Option 1'}</span>
+                                <span className={`text-[10px] font-medium px-1.5 py-0.2 rounded ${(formConfig?.shippingMethod?.option1Price || 0) === 0 ? 'bg-emerald-100 text-emerald-800' : 'text-slate-700 bg-slate-100'}`}>
+                                  {(formConfig?.shippingMethod?.option1Price || 0) === 0 ? 'FREE' : `${currency}${formConfig?.shippingMethod?.option1Price}`}
+                                </span>
+                              </div>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeliverySpeed('option2')}
+                              className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
+                                deliverySpeed === 'option2'
+                                  ? 'border-blue-600 bg-blue-50/50 ring-1 ring-blue-600'
+                                  : 'border-slate-200 bg-white hover:border-slate-300'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-semibold text-slate-900 text-xs">{formConfig?.shippingMethod?.option2Label || 'Option 2'}</span>
+                                <span className={`text-[10px] font-semibold ${(formConfig?.shippingMethod?.option2Price || 0) === 0 ? 'bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded' : 'text-slate-700'}`}>
+                                  {(formConfig?.shippingMethod?.option2Price || 0) === 0 ? 'FREE' : `${currency}${formConfig?.shippingMethod?.option2Price}`}
+                                </span>
+                              </div>
+                            </button>
+                          </div>
                         </div>
-                      </div>
+                      )}
 
                       <div className="pt-1">
                         <button

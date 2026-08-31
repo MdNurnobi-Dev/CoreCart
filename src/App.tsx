@@ -37,6 +37,7 @@ import AdminOrders from './pages/AdminOrders';
 import AdminHelp from './pages/AdminHelp';
 import AdminManualPayments from './pages/AdminManualPayments';
 import AdminPaymentGateways from './pages/AdminPaymentGateways';
+import { AdminCheckoutSettings } from './pages/AdminCheckoutSettings';
 import AdminUsers from './pages/AdminUsers';
 import AdminUserForm from './pages/AdminUserForm';
 import AdminSettings from './pages/AdminSettings';
@@ -134,6 +135,7 @@ export default function App() {
           <Route path="customize">
             <Route path="banners" element={<AdminBanners />} />
             <Route path="home" element={<AdminHomeSettings />} />
+            <Route path="checkout" element={<AdminCheckoutSettings />} />
           </Route>
 
                       <Route path="manage" element={<AdminManage />} />

@@ -51,15 +51,32 @@ export default function QuickOrderModal({ isOpen, onClose, product }: QuickOrder
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
-  const [city, setCity] = useState('Inside City');
+  const [inputCity, setInputCity] = useState('');
+  const [deliveryRegion, setDeliveryRegion] = useState<'option1' | 'option2'>('option1');
+  const [deliverySpeed, setDeliverySpeed] = useState<'option1' | 'option2'>('option1');
   const [paymentMethod, setPaymentMethod] = useState<'Cash on Delivery' | 'bKash / Mobile Banking' | 'Card'>('Cash on Delivery');
   const [mfsProvider, setMfsProvider] = useState<'bKash' | 'Nagad' | 'Rocket'>('bKash');
   const [trxId, setTrxId] = useState('');
   const [cardNumber, setCardNumber] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvc, setCardCvc] = useState('');
-  const [orderNote, setOrderNote] = useState('');
+  const [notes, setNotes] = useState('');
   
+  // Additional fields for dynamic config
+  const [email, setEmail] = useState('');
+  const [district, setDistrict] = useState('');
+  const [postalCode, setPostalCode] = useState('');
+
+  // Checkout Form Config
+  const [formConfig, setFormConfig] = useState<any>(null);
+
+  useEffect(() => {
+    fetch('/api/checkout-form-settings')
+      .then(res => res.json())
+      .then(data => setFormConfig(data))
+      .catch(err => console.error('Failed to load checkout settings', err));
+  }, []);
+
   // Coupon
   const [couponCode, setCouponCode] = useState('');
   const [discountAmount, setDiscountAmount] = useState(0);
@@ -102,7 +119,9 @@ export default function QuickOrderModal({ isOpen, onClose, product }: QuickOrder
   const itemsTotal = unitPrice * quantity;
   
   // Delivery Fee calculation based on area selection
-  const shippingFee = city === 'Inside City' ? 0 : 5; // e.g. Free inside city, flat nominal outside
+  const regionFee = formConfig?.deliveryRegion?.visible === false ? 0 : (deliveryRegion === 'option1' ? Number(formConfig?.deliveryRegion?.option1Price || 0) : Number(formConfig?.deliveryRegion?.option2Price || 0));
+  const speedFee = formConfig?.shippingMethod?.visible === false ? 0 : (deliverySpeed === 'option1' ? Number(formConfig?.shippingMethod?.option1Price || 0) : Number(formConfig?.shippingMethod?.option2Price || 0));
+  const shippingFee = regionFee + speedFee;
   const netTotal = Math.max(0, itemsTotal - discountAmount + shippingFee);
 
   const applyCoupon = async (e: React.FormEvent) => {
@@ -131,15 +150,27 @@ export default function QuickOrderModal({ isOpen, onClose, product }: QuickOrder
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName.trim() || !phone.trim() || !address.trim()) {
-      setError('Please provide your full name, phone number, and delivery address.');
-      return;
+    
+    if (formConfig) {
+      if (formConfig.name?.required && !fullName.trim()) return setError('Please fill in Full Name');
+      if (formConfig.phone?.required && !phone.trim()) return setError('Please fill in Phone Number');
+      if (formConfig.email?.required && !email.trim()) return setError('Please fill in Email Address');
+      if (formConfig.city?.required && !inputCity.trim()) return setError('Please fill in City');
+      if (formConfig.district?.required && !district.trim()) return setError('Please fill in District / Zone');
+      if (formConfig.address?.required && !address.trim()) return setError('Please fill in Delivery Address');
+      if (formConfig.zip?.required && !postalCode.trim()) return setError('Please fill in Postal Code');
+      if (formConfig.notes?.required && !notes.trim()) return setError('Please fill in Delivery Note');
+    } else {
+      if (!fullName.trim() || !phone.trim() || !address.trim()) {
+        setError('Please provide your full name, phone number, and delivery address.');
+        return;
+      }
     }
 
     setSubmitting(true);
     setError('');
 
-    const formattedShippingAddress = `${address.trim()}, Area: ${city}, Phone: ${phone.trim()}${orderNote ? ` (Note: ${orderNote})` : ''}`;
+    const formattedShippingAddress = `${address.trim()}${inputCity ? `, City: ${inputCity}` : ''}${district ? `, Zone: ${district}` : ''}${postalCode ? `, ZIP: ${postalCode}` : ''}, Phone: ${phone.trim()}${email ? `, Email: ${email.trim()}` : ''}${notes ? ` (Note: ${notes})` : ''}`;
 
     let fullPaymentMethodString: string = paymentMethod;
     let paymentStatus = 'Pending';
@@ -156,12 +187,26 @@ export default function QuickOrderModal({ isOpen, onClose, product }: QuickOrder
       paymentStatus = 'Pending';
     }
 
+    const paymentDetailsPayload: any = {
+      method: paymentMethod,
+      deliverySpeed: formConfig?.shippingMethod?.visible === false ? 'None' : (deliverySpeed === 'option1' ? formConfig?.shippingMethod?.option1Label : formConfig?.shippingMethod?.option2Label),
+      deliveryRegion: formConfig?.deliveryRegion?.visible === false ? 'None' : (deliveryRegion === 'option1' ? formConfig?.deliveryRegion?.option1Label : formConfig?.deliveryRegion?.option2Label)
+    };
+
+    if (paymentMethod === 'bKash / Mobile Banking') {
+      paymentDetailsPayload.mfsProvider = mfsProvider;
+      paymentDetailsPayload.mfsTrxId = trxId;
+    } else if (paymentMethod === 'Card') {
+      paymentDetailsPayload.cardLast4 = cardNumber.replace(/\s/g, '').slice(-4);
+    }
+
     const orderPayload = {
       total: netTotal,
       total_amount: netTotal,
       status: paymentStatus,
       paymentMethod: fullPaymentMethodString,
       payment_method: fullPaymentMethodString,
+      payment_details: paymentDetailsPayload,
       shipping_address: formattedShippingAddress,
       items: [
         {
@@ -387,90 +432,226 @@ export default function QuickOrderModal({ isOpen, onClose, product }: QuickOrder
             {/* Customer Information */}
             <div className="space-y-2.5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                    Your Full Name <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <User className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      required
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder="e.g. John Doe"
-                      className="w-full h-8 bg-slate-50/60 border border-slate-200 rounded-md pl-8 pr-2.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium"
-                    />
+                {(!formConfig || formConfig.name?.visible) && (
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                      {formConfig?.name?.label || 'Your Full Name'} {(!formConfig || formConfig.name?.required) && <span className="text-rose-500">*</span>}
+                    </label>
+                    <div className="relative">
+                      <User className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        required={!formConfig || formConfig.name?.required}
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        placeholder="e.g. John Doe"
+                        className="w-full h-8 bg-slate-50/60 border border-slate-200 rounded-md pl-8 pr-2.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
 
-                <div>
-                  <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                    Mobile Number <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="tel"
-                      required
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="e.g. +1 234 567 8900"
-                      className="w-full h-8 bg-slate-50/60 border border-slate-200 rounded-md pl-8 pr-2.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium"
-                    />
+                {(!formConfig || formConfig.phone?.visible) && (
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                      {formConfig?.phone?.label || 'Mobile Number'} {(!formConfig || formConfig.phone?.required) && <span className="text-rose-500">*</span>}
+                    </label>
+                    <div className="relative">
+                      <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="tel"
+                        required={!formConfig || formConfig.phone?.required}
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="e.g. +1 234 567 8900"
+                        className="w-full h-8 bg-slate-50/60 border border-slate-200 rounded-md pl-8 pr-2.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
-              <div>
-                <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                  Delivery Address <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <MapPin className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
-                  <textarea
-                    required
-                    rows={2}
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="House/Apartment, Road, Area, City..."
-                    className="w-full bg-slate-50/60 border border-slate-200 rounded-md pl-8 pr-2.5 py-1.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium resize-none leading-relaxed"
-                  />
+              {/* Dynamic Additional Fields based on Config */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {formConfig?.email?.visible && (
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                      {formConfig?.email?.label || 'Email Address'} {formConfig?.email?.required && <span className="text-rose-500">*</span>}
+                    </label>
+                    <input
+                      type="email"
+                      required={formConfig?.email?.required}
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="john@example.com"
+                      className="w-full h-8 bg-slate-50/60 border border-slate-200 rounded-md px-2.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium"
+                    />
+                  </div>
+                )}
+                
+                {formConfig?.city?.visible && (
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                      {formConfig?.city?.label || 'City'} {formConfig?.city?.required && <span className="text-rose-500">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      required={formConfig?.city?.required}
+                      value={inputCity}
+                      onChange={(e) => setInputCity(e.target.value)}
+                      placeholder="e.g. Dhaka"
+                      className="w-full h-8 bg-slate-50/60 border border-slate-200 rounded-md px-2.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium"
+                    />
+                  </div>
+                )}
+                
+                {formConfig?.district?.visible && (
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                      {formConfig?.district?.label || 'District / Zone'} {formConfig?.district?.required && <span className="text-rose-500">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      required={formConfig?.district?.required}
+                      value={district}
+                      onChange={(e) => setDistrict(e.target.value)}
+                      placeholder="e.g. Uttara"
+                      className="w-full h-8 bg-slate-50/60 border border-slate-200 rounded-md px-2.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {(!formConfig || formConfig.address?.visible) && (
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                    {formConfig?.address?.label || 'Delivery Address'} {(!formConfig || formConfig.address?.required) && <span className="text-rose-500">*</span>}
+                  </label>
+                  <div className="relative">
+                    <MapPin className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
+                    <textarea
+                      required={!formConfig || formConfig.address?.required}
+                      rows={2}
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      placeholder="House/Apartment, Road, Area, City..."
+                      className="w-full bg-slate-50/60 border border-slate-200 rounded-md pl-8 pr-2.5 py-1.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium resize-none leading-relaxed"
+                    />
+                  </div>
                 </div>
+              )}
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {formConfig?.zip?.visible && (
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                      {formConfig?.zip?.label || 'Postal Code'} {formConfig?.zip?.required && <span className="text-rose-500">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      required={formConfig?.zip?.required}
+                      value={postalCode}
+                      onChange={(e) => setPostalCode(e.target.value)}
+                      placeholder="e.g. 1205"
+                      className="w-full h-8 bg-slate-50/60 border border-slate-200 rounded-md px-2.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium"
+                    />
+                  </div>
+                )}
+                
+                {formConfig?.notes?.visible && (
+                  <div className={formConfig.zip?.visible ? '' : 'col-span-1 sm:col-span-2'}>
+                    <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                      {formConfig?.notes?.label || 'Delivery Note'} {formConfig?.notes?.required && <span className="text-rose-500">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      required={formConfig?.notes?.required}
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="e.g. Ring bell, leave at door"
+                      className="w-full h-8 bg-slate-50/60 border border-slate-200 rounded-md px-2.5 text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium"
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Delivery Zone / Area */}
-              <div>
-                <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                  Delivery Region
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setCity('Inside City')}
-                    className={`p-1.5 rounded-md border text-left flex items-center justify-between transition-all cursor-pointer ${
-                      city === 'Inside City'
-                        ? 'border-blue-600 bg-blue-50/60 text-blue-900 font-semibold'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                    }`}
-                  >
-                    <span className="text-xs">Inside City</span>
-                    <span className="text-[10px] px-1 py-0.2 rounded font-medium bg-emerald-100 text-emerald-800">FREE</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCity('Outside City')}
-                    className={`p-1.5 rounded-md border text-left flex items-center justify-between transition-all cursor-pointer ${
-                      city === 'Outside City'
-                        ? 'border-blue-600 bg-blue-50/60 text-blue-900 font-semibold'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                    }`}
-                  >
-                    <span className="text-xs">Outside City</span>
-                    <span className="text-[10px] px-1 py-0.2 rounded font-medium bg-slate-100 text-slate-700">{currency}5.00</span>
-                  </button>
+              {(!formConfig || formConfig.deliveryRegion?.visible !== false) && (
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                    {formConfig?.deliveryRegion?.label || 'Delivery Region'}
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryRegion('option1')}
+                      className={`p-1.5 rounded-md border text-left flex items-center justify-between transition-all cursor-pointer ${
+                        deliveryRegion === 'option1'
+                          ? 'border-blue-600 bg-blue-50/60 text-blue-900 font-semibold'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                      }`}
+                    >
+                      <span className="text-xs">{formConfig?.deliveryRegion?.option1Label || 'Option 1'}</span>
+                      <span className={`text-[10px] px-1 py-0.2 rounded font-medium ${(formConfig?.deliveryRegion?.option1Price || 0) === 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'}`}>
+                        {(formConfig?.deliveryRegion?.option1Price || 0) === 0 ? 'FREE' : `${currency}${formConfig?.deliveryRegion?.option1Price}`}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryRegion('option2')}
+                      className={`p-1.5 rounded-md border text-left flex items-center justify-between transition-all cursor-pointer ${
+                        deliveryRegion === 'option2'
+                          ? 'border-blue-600 bg-blue-50/60 text-blue-900 font-semibold'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                      }`}
+                    >
+                      <span className="text-xs">{formConfig?.deliveryRegion?.option2Label || 'Option 2'}</span>
+                      <span className={`text-[10px] px-1 py-0.2 rounded font-medium ${(formConfig?.deliveryRegion?.option2Price || 0) === 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'}`}>
+                        {(formConfig?.deliveryRegion?.option2Price || 0) === 0 ? 'FREE' : `${currency}${formConfig?.deliveryRegion?.option2Price}`}
+                      </span>
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Shipping Method */}
+              {(!formConfig || formConfig.shippingMethod?.visible !== false) && (
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                    {formConfig?.shippingMethod?.label || 'Shipping Method'}
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDeliverySpeed('option1')}
+                      className={`p-1.5 rounded-md border text-left flex items-center justify-between transition-all cursor-pointer ${
+                        deliverySpeed === 'option1'
+                          ? 'border-blue-600 bg-blue-50/60 text-blue-900 font-semibold'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                      }`}
+                    >
+                      <span className="text-xs">{formConfig?.shippingMethod?.option1Label || 'Option 1'}</span>
+                      <span className={`text-[10px] px-1 py-0.2 rounded font-medium ${(formConfig?.shippingMethod?.option1Price || 0) === 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'}`}>
+                        {(formConfig?.shippingMethod?.option1Price || 0) === 0 ? 'FREE' : `${currency}${formConfig?.shippingMethod?.option1Price}`}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeliverySpeed('option2')}
+                      className={`p-1.5 rounded-md border text-left flex items-center justify-between transition-all cursor-pointer ${
+                        deliverySpeed === 'option2'
+                          ? 'border-blue-600 bg-blue-50/60 text-blue-900 font-semibold'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                      }`}
+                    >
+                      <span className="text-xs">{formConfig?.shippingMethod?.option2Label || 'Option 2'}</span>
+                      <span className={`text-[10px] px-1 py-0.2 rounded font-medium ${(formConfig?.shippingMethod?.option2Price || 0) === 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'}`}>
+                        {(formConfig?.shippingMethod?.option2Price || 0) === 0 ? 'FREE' : `${currency}${formConfig?.shippingMethod?.option2Price}`}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Payment Method Selector */}
               <div>

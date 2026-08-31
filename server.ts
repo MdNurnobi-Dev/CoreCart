@@ -607,6 +607,12 @@ async function initDB() {
 
     // Ensure Coupons / Offers Table & Seed Default Promotional Vouchers
     await ensureCouponsTableExist();
+
+    // Ensure Order Status Audit Logs Table
+    await ensureOrderStatusAuditLogsTableExist();
+    
+    // Ensure Checkout Form Settings Table
+    await ensureCheckoutFormSettingsTableExist();
     
   } catch (err) {
     console.error('Error initializing DB:', err);
@@ -835,6 +841,115 @@ async function ensurePaymentTablesExist() {
   }
 }
 
+// Helper to ensure order_status_audit_logs table exists
+async function ensureOrderStatusAuditLogsTableExist() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS order_status_audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+        previous_status TEXT,
+        new_status TEXT NOT NULL,
+        admin_id INTEGER,
+        admin_name TEXT DEFAULT 'Admin',
+        admin_email TEXT DEFAULT '',
+        notes TEXT DEFAULT '',
+        change_reason TEXT DEFAULT '',
+        ip_address TEXT DEFAULT '',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } catch (err) {
+    console.error('ensureOrderStatusAuditLogsTableExist error:', err);
+  }
+}
+
+// Helper to record order status audit log
+async function logOrderStatusChange({
+  orderId,
+  previousStatus = null,
+  newStatus,
+  adminId = null,
+  adminName = 'Admin',
+  adminEmail = '',
+  notes = '',
+  changeReason = '',
+  ipAddress = ''
+}: {
+  orderId: number;
+  previousStatus?: string | null;
+  newStatus: string;
+  adminId?: number | null;
+  adminName?: string;
+  adminEmail?: string;
+  notes?: string;
+  changeReason?: string;
+  ipAddress?: string;
+}) {
+  try {
+    await ensureOrderStatusAuditLogsTableExist();
+    const result = await pool.query(`
+      INSERT INTO order_status_audit_logs 
+        (order_id, previous_status, new_status, admin_id, admin_name, admin_email, notes, change_reason, ip_address, created_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
+      RETURNING *
+    `, [
+      orderId,
+      previousStatus || null,
+      newStatus,
+      adminId,
+      adminName || 'Admin',
+      adminEmail || '',
+      notes || '',
+      changeReason || '',
+      ipAddress || ''
+    ]);
+    return result.rows[0];
+  } catch (e) {
+    console.error('[Audit Log] Failed to insert audit log entry:', e);
+    return null;
+  }
+}
+
+// Helper to ensure checkout form settings table exists and is seeded
+async function ensureCheckoutFormSettingsTableExist() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS checkout_form_settings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        config JSON NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    const check = await pool.query('SELECT COUNT(*) as count FROM checkout_form_settings');
+    const countVal = check.rows[0]?.count ?? check.rows[0]?.['COUNT(*)'] ?? check.rows[0]?.['count(*)'] ?? 0;
+    
+    if (parseInt(countVal) === 0) {
+      console.log('Seeding default checkout form settings...');
+      const defaultConfig = {
+        name: { label: 'Full Name', required: true, visible: true },
+        phone: { label: 'Phone Number', required: true, visible: true },
+        email: { label: 'Email Address', required: false, visible: true },
+        address: { label: 'Delivery Address', required: true, visible: true },
+        city: { label: 'City', required: true, visible: true },
+        district: { label: 'District / Zone', required: false, visible: true },
+        zip: { label: 'Zip / Postal Code', required: false, visible: true },
+        notes: { label: 'Order Notes (Optional)', required: false, visible: true },
+        deliveryRegion: { label: 'Delivery Region', required: true, visible: true, option1Label: 'Inside City', option1Price: 0, option2Label: 'Outside City', option2Price: 5 },
+        shippingMethod: { label: 'Shipping Method', required: true, visible: true, option1Label: 'Standard Delivery', option1Price: 0, option2Label: 'Priority Express', option2Price: 5 }
+      };
+      
+      await pool.query(`
+        INSERT INTO checkout_form_settings (id, config, updated_at) 
+        VALUES (1, $1, CURRENT_TIMESTAMP)
+      `, [JSON.stringify(defaultConfig)]);
+    }
+  } catch (err) {
+    console.error('Error ensuring checkout_form_settings table exists:', err);
+  }
+}
+
 // API ROUTES
 
 // Auth: Register
@@ -927,6 +1042,59 @@ const authenticateAdmin = (req: any, res: any, next: any) => {
     next();
   });
 };
+
+// Public: Get Checkout Form Settings
+app.get('/api/checkout-form-settings', async (req, res) => {
+  try {
+    const result = await pool.query("SELECT config FROM checkout_form_settings LIMIT 1");
+    if (result.rows.length > 0) {
+      res.json(JSON.parse(result.rows[0].config));
+    } else {
+      res.json({
+        name: { label: 'Full Name', required: true, visible: true },
+        phone: { label: 'Phone Number', required: true, visible: true },
+        email: { label: 'Email Address', required: false, visible: true },
+        address: { label: 'Delivery Address', required: true, visible: true },
+        city: { label: 'City', required: true, visible: true },
+        district: { label: 'District / Zone', required: false, visible: true },
+        zip: { label: 'Zip / Postal Code', required: false, visible: true },
+        notes: { label: 'Order Notes (Optional)', required: false, visible: true },
+        deliveryRegion: { label: 'Delivery Region', required: true, visible: true, option1Label: 'Inside City', option1Price: 0, option2Label: 'Outside City', option2Price: 5 },
+        shippingMethod: { label: 'Shipping Method', required: true, visible: true, option1Label: 'Standard Delivery', option1Price: 0, option2Label: 'Priority Express', option2Price: 5 }
+      });
+    }
+  } catch (err) {
+    console.error('Failed to fetch checkout form settings:', err);
+    res.status(500).json({ error: 'Failed to fetch checkout form settings' });
+  }
+});
+
+// Admin: Update Checkout Form Settings
+app.put('/api/admin/checkout-form-settings', authenticateAdmin, async (req: any, res: any) => {
+  try {
+    const config = req.body;
+    
+    // Ensure table exists just in case
+    await ensureCheckoutFormSettingsTableExist();
+    
+    const check = await pool.query("SELECT id FROM checkout_form_settings LIMIT 1");
+    if (check.rows.length === 0) {
+      await pool.query(
+        "INSERT INTO checkout_form_settings (id, config, updated_at) VALUES (1, $1, CURRENT_TIMESTAMP)", 
+        [JSON.stringify(config)]
+      );
+    } else {
+      await pool.query(
+        "UPDATE checkout_form_settings SET config = $1, updated_at = CURRENT_TIMESTAMP WHERE id = 1", 
+        [JSON.stringify(config)]
+      );
+    }
+    res.json({ success: true, message: 'Checkout form settings updated' });
+  } catch (err: any) {
+    console.error('Failed to update checkout form settings:', err);
+    res.status(500).json({ error: 'Failed to update checkout form settings', details: err.message });
+  }
+});
 
 // Admin Migration / Sync Endpoint (Neon PostgreSQL <-> Turso SQLite)
 app.post('/api/admin/db/sync-from-neon', authenticateAdmin, async (req: any, res: any) => {
@@ -1395,10 +1563,11 @@ app.get('/api/admin/orders', authenticateAdmin, async (req: any, res: any) => {
   try {
     let query = `
       SELECT o.id, o.total_amount, o.status, o.payment_method, o.payment_details, o.shipping_address, 
-             o.tracking_number, o.courier_name, o.created_at, 
+             o.tracking_number, o.courier_name, o.current_location, o.estimated_delivery,
+             o.admin_notes, o.customer_notes, o.recipient_name, o.customer_phone, o.created_at, 
              COALESCE(u.name, 'Guest Customer') as user_name, 
              COALESCE(u.email, 'guest@example.com') as user_email,
-             COALESCE(u.phone, '') as user_phone
+             COALESCE(NULLIF(o.customer_phone, ''), u.phone, '') as user_phone
       FROM orders o
       LEFT JOIN users u ON o.user_id = u.id
       ORDER BY o.created_at DESC
@@ -1411,11 +1580,12 @@ app.get('/api/admin/orders', authenticateAdmin, async (req: any, res: any) => {
     const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (err) {
+    console.error('Error fetching admin orders:', err);
     res.status(500).json({ error: 'Failed to fetch admin orders' });
   }
 });
 
-// Admin: Get Single Order Details with Items
+// Admin: Get Single Order Details with Items & Tracking Checkpoints
 app.get('/api/admin/orders/:id', authenticateAdmin, async (req: any, res: any) => {
   try {
     const orderId = parseInt(req.params.id, 10);
@@ -1423,7 +1593,7 @@ app.get('/api/admin/orders/:id', authenticateAdmin, async (req: any, res: any) =
       SELECT o.*, 
              COALESCE(u.name, 'Guest Customer') as user_name, 
              COALESCE(u.email, 'guest@example.com') as user_email,
-             COALESCE(u.phone, '') as user_phone
+             COALESCE(NULLIF(o.customer_phone, ''), u.phone, '') as user_phone
       FROM orders o
       LEFT JOIN users u ON o.user_id = u.id
       WHERE o.id = $1
@@ -1434,6 +1604,18 @@ app.get('/api/admin/orders/:id', authenticateAdmin, async (req: any, res: any) =
     }
 
     const order = orderResult.rows[0];
+    
+    // Parse tracking history safely
+    if (typeof order.tracking_history === 'string') {
+      try {
+        order.tracking_history = JSON.parse(order.tracking_history || '[]');
+      } catch (e) {
+        order.tracking_history = [];
+      }
+    } else if (!order.tracking_history) {
+      order.tracking_history = [];
+    }
+
     const itemsResult = await pool.query(`
       SELECT oi.*, p.name as product_name, p.image_url as product_image, p.category as product_category
       FROM order_items oi
@@ -1442,33 +1624,551 @@ app.get('/api/admin/orders/:id', authenticateAdmin, async (req: any, res: any) =
     `, [order.id]);
 
     order.items = itemsResult.rows;
+
+    // Fetch or initialize audit logs
+    await ensureOrderStatusAuditLogsTableExist();
+    let auditLogsResult = await pool.query(`
+      SELECT * FROM order_status_audit_logs 
+      WHERE order_id = $1 
+      ORDER BY created_at DESC, id DESC
+    `, [order.id]);
+
+    if (auditLogsResult.rows.length === 0) {
+      try {
+        await pool.query(`
+          INSERT INTO order_status_audit_logs 
+            (order_id, previous_status, new_status, admin_name, admin_email, notes, change_reason, created_at)
+          VALUES ($1, NULL, $2, 'System / Customer', 'system@checkout', $3, 'Initial Order Placed', $4)
+        `, [
+          order.id,
+          order.status || 'Pending',
+          `Order created by customer (${order.recipient_name || order.user_name || 'Customer'}). Payment: ${order.payment_method || 'Standard Checkout'}`,
+          order.created_at || new Date().toISOString()
+        ]);
+        auditLogsResult = await pool.query(`
+          SELECT * FROM order_status_audit_logs 
+          WHERE order_id = $1 
+          ORDER BY created_at DESC, id DESC
+        `, [order.id]);
+      } catch (seedAuditErr) {
+        console.warn('[Audit Log Seed Warning]:', seedAuditErr);
+      }
+    }
+
+    order.audit_logs = auditLogsResult.rows;
     res.json(order);
   } catch (err) {
+    console.error('Error fetching admin order details:', err);
     res.status(500).json({ error: 'Failed to fetch order details' });
   }
 });
 
-// Admin: Update Order Status & Courier/Tracking
+// Admin: Bulk Update Order Status, Courier & Tracking Checkpoint
+const handleBulkOrderStatusUpdate = async (req: any, res: any) => {
+  try {
+    const { 
+      order_ids, 
+      status, 
+      courier_name, 
+      current_location, 
+      change_reason, 
+      notes,
+      append_checkpoint = true 
+    } = req.body;
+
+    if (!Array.isArray(order_ids) || order_ids.length === 0) {
+      return res.status(400).json({ error: 'Please provide an array of order_ids' });
+    }
+    if (!status) {
+      return res.status(400).json({ error: 'Please provide a target status' });
+    }
+
+    await ensureOrderStatusAuditLogsTableExist();
+    const updatedOrders: any[] = [];
+    const nowIso = new Date().toISOString();
+    const adminName = req.user?.name || req.user?.email || 'Admin';
+    const adminEmail = req.user?.email || 'admin@techstore.com';
+    const adminId = req.user?.id || null;
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] || '';
+
+    for (const rawId of order_ids) {
+      const orderId = parseInt(rawId, 10);
+      if (isNaN(orderId)) continue;
+
+      const existingRes = await pool.query('SELECT * FROM orders WHERE id = $1', [orderId]);
+      if (existingRes.rows.length === 0) continue;
+
+      const prevOrder = existingRes.rows[0];
+      const prevStatus = prevOrder.status;
+      const isStatusChanged = prevStatus !== status;
+
+      let historyJson = prevOrder.tracking_history;
+      if (append_checkpoint || isStatusChanged) {
+        let parsed = [];
+        try {
+          parsed = JSON.parse(prevOrder.tracking_history || '[]');
+        } catch (e) {
+          parsed = [];
+        }
+        parsed.push({
+          id: 'chk_bulk_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+          title: `Bulk update: Status changed to ${status}`,
+          location: current_location || prevOrder.current_location || 'Central Facility',
+          timestamp: nowIso,
+          status: status,
+          note: notes || `Bulk status update by Admin to ${status}`,
+          completed: true
+        });
+        historyJson = JSON.stringify(parsed);
+      }
+
+      const updateRes = await pool.query(`
+        UPDATE orders SET
+          status = $1,
+          courier_name = COALESCE($2, courier_name),
+          current_location = COALESCE($3, current_location),
+          tracking_history = COALESCE($4, tracking_history),
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $5
+        RETURNING *
+      `, [
+        status,
+        courier_name || null,
+        current_location || null,
+        historyJson,
+        orderId
+      ]);
+
+      if (updateRes.rows.length > 0) {
+        const updated = updateRes.rows[0];
+        try {
+          updated.tracking_history = JSON.parse(updated.tracking_history || '[]');
+        } catch (e) {
+          updated.tracking_history = [];
+        }
+        updatedOrders.push(updated);
+
+        // Record persistent audit log entry
+        const logNotes = notes 
+          ? `[Bulk Action - ${order_ids.length} orders]: ${notes}` 
+          : `Bulk status update to "${status}" across ${order_ids.length} orders${courier_name ? ` (Courier: ${courier_name})` : ''}${current_location ? ` (Location: ${current_location})` : ''}`;
+
+        await logOrderStatusChange({
+          orderId,
+          previousStatus: isStatusChanged ? prevStatus : null,
+          newStatus: status,
+          adminId,
+          adminName,
+          adminEmail,
+          notes: logNotes,
+          changeReason: change_reason || `Bulk Status Update (${status})`,
+          ipAddress: String(ipAddress)
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      updated_count: updatedOrders.length,
+      orders: updatedOrders,
+      message: `Successfully updated ${updatedOrders.length} order(s) to "${status}"`
+    });
+  } catch (err) {
+    console.error('Failed to perform bulk order status update:', err);
+    res.status(500).json({ error: 'Failed to perform bulk update' });
+  }
+};
+
+app.put('/api/admin/orders/bulk-status', authenticateAdmin, handleBulkOrderStatusUpdate);
+app.post('/api/admin/orders/bulk-status', authenticateAdmin, handleBulkOrderStatusUpdate);
+
+// Admin: Update Order Details, Status, Courier & Logistics
 app.put('/api/admin/orders/:id/status', authenticateAdmin, async (req: any, res: any) => {
-  const { status, tracking_number, courier_name } = req.body;
+  const { 
+    status, 
+    tracking_number, 
+    courier_name, 
+    current_location, 
+    estimated_delivery, 
+    admin_notes, 
+    customer_notes, 
+    shipping_address, 
+    recipient_name, 
+    customer_phone, 
+    tracking_history,
+    change_reason,
+    audit_notes
+  } = req.body;
+
   try {
     const orderId = parseInt(req.params.id, 10);
-    let result;
-    if (tracking_number !== undefined || courier_name !== undefined) {
-      result = await pool.query(
-        'UPDATE orders SET status = COALESCE($1, status), tracking_number = COALESCE($2, tracking_number), courier_name = COALESCE($3, courier_name) WHERE id = $4 RETURNING *',
-        [status, tracking_number, courier_name, orderId]
-      );
-    } else {
-      result = await pool.query(
-        'UPDATE orders SET status = $1 WHERE id = $2 RETURNING *',
-        [status, orderId]
-      );
+    
+    // Fetch existing order to merge history
+    const existing = await pool.query('SELECT * FROM orders WHERE id = $1', [orderId]);
+    if (existing.rows.length === 0) return res.status(404).json({ error: 'Order not found' });
+    
+    const prevOrder = existing.rows[0];
+    const prevStatus = prevOrder.status;
+    const isStatusChanged = status !== undefined && status !== prevStatus;
+    const nextStatus = status !== undefined ? status : prevStatus;
+
+    let historyJson = tracking_history;
+    if (Array.isArray(tracking_history)) {
+      historyJson = JSON.stringify(tracking_history);
+    } else if (tracking_history === undefined && isStatusChanged) {
+      // Auto-append status change milestone if tracking_history wasn't explicitly supplied
+      let parsed = [];
+      try {
+        parsed = JSON.parse(prevOrder.tracking_history || '[]');
+      } catch (e) {
+        parsed = [];
+      }
+      parsed.push({
+        id: 'chk_' + Date.now(),
+        title: `Status changed to ${status}`,
+        location: current_location || prevOrder.current_location || 'Central Facility',
+        timestamp: new Date().toISOString(),
+        status: status,
+        note: `Order status updated by Admin to ${status}`,
+        completed: true
+      });
+      historyJson = JSON.stringify(parsed);
     }
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
-    res.json(result.rows[0]);
+
+    const result = await pool.query(`
+      UPDATE orders SET 
+        status = COALESCE($1, status),
+        tracking_number = COALESCE($2, tracking_number),
+        courier_name = COALESCE($3, courier_name),
+        current_location = COALESCE($4, current_location),
+        estimated_delivery = COALESCE($5, estimated_delivery),
+        admin_notes = COALESCE($6, admin_notes),
+        customer_notes = COALESCE($7, customer_notes),
+        shipping_address = COALESCE($8, shipping_address),
+        recipient_name = COALESCE($9, recipient_name),
+        customer_phone = COALESCE($10, customer_phone),
+        tracking_history = COALESCE($11, tracking_history)
+      WHERE id = $12
+      RETURNING *
+    `, [
+      status !== undefined ? status : null,
+      tracking_number !== undefined ? tracking_number : null,
+      courier_name !== undefined ? courier_name : null,
+      current_location !== undefined ? current_location : null,
+      estimated_delivery !== undefined ? estimated_delivery : null,
+      admin_notes !== undefined ? admin_notes : null,
+      customer_notes !== undefined ? customer_notes : null,
+      shipping_address !== undefined ? shipping_address : null,
+      recipient_name !== undefined ? recipient_name : null,
+      customer_phone !== undefined ? customer_phone : null,
+      historyJson !== undefined ? historyJson : null,
+      orderId
+    ]);
+
+    const updatedOrder = result.rows[0];
+    try {
+      updatedOrder.tracking_history = JSON.parse(updatedOrder.tracking_history || '[]');
+    } catch (e) {
+      updatedOrder.tracking_history = [];
+    }
+
+    // Build descriptive changes for the audit log
+    const changeBullets: string[] = [];
+    if (isStatusChanged) {
+      changeBullets.push(`Status changed from "${prevStatus}" to "${nextStatus}"`);
+    }
+    if (tracking_number !== undefined && tracking_number !== prevOrder.tracking_number) {
+      changeBullets.push(`Tracking # set to "${tracking_number || 'Cleared'}"`);
+    }
+    if (courier_name !== undefined && courier_name !== prevOrder.courier_name) {
+      changeBullets.push(`Courier set to "${courier_name || 'Standard'}"`);
+    }
+    if (current_location !== undefined && current_location !== prevOrder.current_location) {
+      changeBullets.push(`Location checkpoint updated to "${current_location}"`);
+    }
+    if (estimated_delivery !== undefined && estimated_delivery !== prevOrder.estimated_delivery) {
+      changeBullets.push(`Est. Delivery set to "${estimated_delivery}"`);
+    }
+    if (admin_notes !== undefined && admin_notes !== prevOrder.admin_notes) {
+      changeBullets.push(`Admin note updated`);
+    }
+    if (audit_notes) {
+      changeBullets.push(audit_notes);
+    }
+
+    const logNoteText = changeBullets.length > 0 ? changeBullets.join('; ') : (isStatusChanged ? `Status updated to ${nextStatus}` : 'Order details updated by Admin');
+    const logReason = change_reason || (isStatusChanged ? `Admin status transition to ${nextStatus}` : 'Order update');
+
+    await logOrderStatusChange({
+      orderId,
+      previousStatus: isStatusChanged ? prevStatus : null,
+      newStatus: nextStatus,
+      adminId: req.user?.id || null,
+      adminName: req.user?.name || req.user?.email || 'Admin',
+      adminEmail: req.user?.email || 'admin@techstore.com',
+      notes: logNoteText,
+      changeReason: logReason,
+      ipAddress: req.ip || req.headers['x-forwarded-for'] || ''
+    });
+
+    const auditLogsRes = await pool.query(`
+      SELECT * FROM order_status_audit_logs 
+      WHERE order_id = $1 
+      ORDER BY created_at DESC, id DESC
+    `, [orderId]);
+
+    updatedOrder.audit_logs = auditLogsRes.rows;
+
+    res.json(updatedOrder);
   } catch (err) {
+    console.error('Failed to update order status:', err);
     res.status(500).json({ error: 'Failed to update order status' });
+  }
+});
+
+// Admin: Get Detailed Status Audit Logs for an Order
+app.get('/api/admin/orders/:id/audit-logs', authenticateAdmin, async (req: any, res: any) => {
+  try {
+    await ensureOrderStatusAuditLogsTableExist();
+    const orderId = parseInt(req.params.id, 10);
+    
+    let result = await pool.query(`
+      SELECT * FROM order_status_audit_logs 
+      WHERE order_id = $1 
+      ORDER BY created_at DESC, id DESC
+    `, [orderId]);
+
+    if (result.rows.length === 0) {
+      const orderRes = await pool.query('SELECT * FROM orders WHERE id = $1', [orderId]);
+      if (orderRes.rows.length > 0) {
+        const ord = orderRes.rows[0];
+        await pool.query(`
+          INSERT INTO order_status_audit_logs 
+            (order_id, previous_status, new_status, admin_name, admin_email, notes, change_reason, created_at)
+          VALUES ($1, NULL, $2, 'System / Customer', 'system@checkout', $3, 'Initial Order Placed', $4)
+        `, [
+          orderId,
+          ord.status || 'Pending',
+          `Order created by customer. Payment: ${ord.payment_method || 'Standard Checkout'}`,
+          ord.created_at || new Date().toISOString()
+        ]);
+        result = await pool.query(`
+          SELECT * FROM order_status_audit_logs 
+          WHERE order_id = $1 
+          ORDER BY created_at DESC, id DESC
+        `, [orderId]);
+      }
+    }
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching order audit logs:', err);
+    res.status(500).json({ error: 'Failed to fetch audit logs' });
+  }
+});
+
+// Admin: Add Manual Audit Log or Transition Status with Audit Note
+app.post('/api/admin/orders/:id/audit-logs', authenticateAdmin, async (req: any, res: any) => {
+  try {
+    await ensureOrderStatusAuditLogsTableExist();
+    const orderId = parseInt(req.params.id, 10);
+    const { notes, change_reason, new_status } = req.body;
+
+    if (!notes && !change_reason && !new_status) {
+      return res.status(400).json({ error: 'Please provide an audit note, change reason, or status change' });
+    }
+
+    const orderRes = await pool.query('SELECT * FROM orders WHERE id = $1', [orderId]);
+    if (orderRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const order = orderRes.rows[0];
+    const prevStatus = order.status;
+    const targetStatus = new_status || prevStatus;
+    const isStatusChanged = new_status && new_status !== prevStatus;
+
+    if (isStatusChanged) {
+      await pool.query('UPDATE orders SET status = $1 WHERE id = $2', [new_status, orderId]);
+    }
+
+    const adminName = req.user?.name || req.user?.email || 'Admin';
+    const adminEmail = req.user?.email || 'admin@techstore.com';
+    const adminId = req.user?.id || null;
+    const ip = req.ip || req.headers['x-forwarded-for'] || '';
+
+    const newLog = await logOrderStatusChange({
+      orderId,
+      previousStatus: isStatusChanged ? prevStatus : null,
+      newStatus: targetStatus,
+      adminId,
+      adminName,
+      adminEmail,
+      notes: notes || (isStatusChanged ? `Status transitioned to ${targetStatus}` : 'Manual audit note recorded'),
+      changeReason: change_reason || (isStatusChanged ? `Status change to ${targetStatus}` : 'Admin Audit Entry'),
+      ipAddress: String(ip)
+    });
+
+    const allLogs = await pool.query(`
+      SELECT * FROM order_status_audit_logs 
+      WHERE order_id = $1 
+      ORDER BY created_at DESC, id DESC
+    `, [orderId]);
+
+    res.json({
+      success: true,
+      log: newLog,
+      audit_logs: allLogs.rows,
+      current_status: targetStatus
+    });
+  } catch (err) {
+    console.error('Failed to create manual audit log:', err);
+    res.status(500).json({ error: 'Failed to record audit log' });
+  }
+});
+
+// Admin: Add Live Tracking Checkpoint / Milestone
+app.post('/api/admin/orders/:id/checkpoints', authenticateAdmin, async (req: any, res: any) => {
+  try {
+    const orderId = parseInt(req.params.id, 10);
+    const { title, location, timestamp, status, note } = req.body;
+
+    if (!title) {
+      return res.status(400).json({ error: 'Checkpoint title is required' });
+    }
+
+    const orderRes = await pool.query('SELECT * FROM orders WHERE id = $1', [orderId]);
+    if (orderRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const order = orderRes.rows[0];
+    let milestones = [];
+    try {
+      milestones = JSON.parse(order.tracking_history || '[]');
+    } catch (e) {
+      milestones = [];
+    }
+
+    const newCheckpoint = {
+      id: 'chk_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+      title: title.trim(),
+      location: (location || order.current_location || 'Logistics Hub').trim(),
+      timestamp: timestamp || new Date().toISOString(),
+      status: status || order.status,
+      note: (note || '').trim(),
+      completed: true
+    };
+
+    milestones.push(newCheckpoint);
+
+    // Update order with new checkpoint, location and optional status
+    const updateRes = await pool.query(`
+      UPDATE orders SET 
+        tracking_history = $1,
+        current_location = COALESCE(NULLIF($2, ''), current_location),
+        status = COALESCE(NULLIF($3, ''), status)
+      WHERE id = $4
+      RETURNING *
+    `, [
+      JSON.stringify(milestones),
+      location || '',
+      status || '',
+      orderId
+    ]);
+
+    const updated = updateRes.rows[0];
+    try {
+      updated.tracking_history = JSON.parse(updated.tracking_history || '[]');
+    } catch (e) {
+      updated.tracking_history = [];
+    }
+
+    // Log checkpoint addition in audit trail
+    await logOrderStatusChange({
+      orderId,
+      previousStatus: status && status !== order.status ? order.status : null,
+      newStatus: status || order.status,
+      adminId: req.user?.id || null,
+      adminName: req.user?.name || req.user?.email || 'Admin',
+      adminEmail: req.user?.email || 'admin@techstore.com',
+      notes: `Tracking checkpoint added: "${title}" (${location || order.current_location || 'Hub'})${note ? ` - ${note}` : ''}`,
+      changeReason: 'Live Tracking Checkpoint Added',
+      ipAddress: req.ip || req.headers['x-forwarded-for'] || ''
+    });
+
+    const auditLogsRes = await pool.query(`
+      SELECT * FROM order_status_audit_logs 
+      WHERE order_id = $1 
+      ORDER BY created_at DESC, id DESC
+    `, [orderId]);
+    updated.audit_logs = auditLogsRes.rows;
+
+    res.json(updated);
+  } catch (err) {
+    console.error('Failed to add tracking checkpoint:', err);
+    res.status(500).json({ error: 'Failed to add tracking checkpoint' });
+  }
+});
+
+// Admin: Delete Tracking Checkpoint
+app.delete('/api/admin/orders/:id/checkpoints/:checkpointId', authenticateAdmin, async (req: any, res: any) => {
+  try {
+    const orderId = parseInt(req.params.id, 10);
+    const checkpointId = req.params.checkpointId;
+
+    const orderRes = await pool.query('SELECT * FROM orders WHERE id = $1', [orderId]);
+    if (orderRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const order = orderRes.rows[0];
+    let milestones = [];
+    try {
+      milestones = JSON.parse(order.tracking_history || '[]');
+    } catch (e) {
+      milestones = [];
+    }
+
+    const removedCheckpoint = milestones.find((m: any) => m.id === checkpointId);
+    milestones = milestones.filter((m: any) => m.id !== checkpointId);
+
+    const updateRes = await pool.query(
+      'UPDATE orders SET tracking_history = $1 WHERE id = $2 RETURNING *',
+      [JSON.stringify(milestones), orderId]
+    );
+
+    const updated = updateRes.rows[0];
+    try {
+      updated.tracking_history = JSON.parse(updated.tracking_history || '[]');
+    } catch (e) {
+      updated.tracking_history = [];
+    }
+
+    // Record audit log for checkpoint removal
+    await logOrderStatusChange({
+      orderId,
+      previousStatus: null,
+      newStatus: order.status,
+      adminId: req.user?.id || null,
+      adminName: req.user?.name || req.user?.email || 'Admin',
+      adminEmail: req.user?.email || 'admin@techstore.com',
+      notes: `Tracking checkpoint removed: "${removedCheckpoint?.title || checkpointId}"`,
+      changeReason: 'Checkpoint Removed',
+      ipAddress: req.ip || req.headers['x-forwarded-for'] || ''
+    });
+
+    const auditLogsRes = await pool.query(`
+      SELECT * FROM order_status_audit_logs 
+      WHERE order_id = $1 
+      ORDER BY created_at DESC, id DESC
+    `, [orderId]);
+    updated.audit_logs = auditLogsRes.rows;
+
+    res.json(updated);
+  } catch (err) {
+    console.error('Failed to delete tracking checkpoint:', err);
+    res.status(500).json({ error: 'Failed to delete checkpoint' });
   }
 });
 
@@ -1777,6 +2477,18 @@ app.put('/api/admin/manual-payments/:id/verify', authenticateAdmin, async (req: 
         SET status = 'Paid'
         WHERE id = $1
       `, [payment.order_id]);
+
+      await logOrderStatusChange({
+        orderId: payment.order_id,
+        previousStatus: 'Pending Payment',
+        newStatus: 'Paid',
+        adminId: req.user?.id || null,
+        adminName: req.user?.name || req.user?.email || 'Admin',
+        adminEmail: req.user?.email || 'admin@techstore.com',
+        notes: `Manual Payment (#${payment.gateway_name || 'Gateway'}, TrxID: ${payment.trx_id || 'N/A'}, Amount: ৳${payment.amount}) verified and approved by admin. Note: ${admin_note || 'Approved'}`,
+        changeReason: 'Manual Payment Verified',
+        ipAddress: req.ip || req.headers['x-forwarded-for'] || ''
+      });
     }
 
     res.json({
@@ -1816,6 +2528,18 @@ app.put('/api/admin/manual-payments/:id/reject', authenticateAdmin, async (req: 
         SET status = 'Payment Failed'
         WHERE id = $1
       `, [payment.order_id]);
+
+      await logOrderStatusChange({
+        orderId: payment.order_id,
+        previousStatus: 'Pending Payment',
+        newStatus: 'Payment Failed',
+        adminId: req.user?.id || null,
+        adminName: req.user?.name || req.user?.email || 'Admin',
+        adminEmail: req.user?.email || 'admin@techstore.com',
+        notes: `Manual Payment (${payment.gateway_name || 'Gateway'}, TrxID: ${payment.trx_id || 'N/A'}) rejected by admin. Reason: ${admin_note || 'TrxID invalid or unverified'}`,
+        changeReason: 'Manual Payment Rejected',
+        ipAddress: req.ip || req.headers['x-forwarded-for'] || ''
+      });
     }
 
     res.json({
@@ -2090,6 +2814,17 @@ app.get('/api/track-order/:query', async (req, res) => {
 
     const order = orderResult.rows[0];
     
+    // Parse tracking history safely
+    if (typeof order.tracking_history === 'string') {
+      try {
+        order.tracking_history = JSON.parse(order.tracking_history || '[]');
+      } catch (e) {
+        order.tracking_history = [];
+      }
+    } else if (!order.tracking_history) {
+      order.tracking_history = [];
+    }
+    
     // Fetch items with product images and names
     const itemsResult = await pool.query(`
       SELECT oi.*, p.name as product_name, p.image_url as product_image, p.category as product_category
@@ -2118,6 +2853,18 @@ app.get('/api/user/orders/:id', authenticateToken, async (req: any, res: any) =>
     }
 
     const order = orderResult.rows[0];
+
+    // Parse tracking history safely
+    if (typeof order.tracking_history === 'string') {
+      try {
+        order.tracking_history = JSON.parse(order.tracking_history || '[]');
+      } catch (e) {
+        order.tracking_history = [];
+      }
+    } else if (!order.tracking_history) {
+      order.tracking_history = [];
+    }
+
     const itemsResult = await pool.query(`
       SELECT oi.*, p.name as product_name, p.image_url as product_image, p.category as product_category
       FROM order_items oi

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../api';
-import { Plus, Edit2, Trash2, CheckCircle, XCircle, GripVertical } from 'lucide-react';
+import { Plus, Edit2, Trash2, CheckCircle, XCircle, GripVertical, Upload, Loader2 } from 'lucide-react';
 import LazyImage from '../components/LazyImage';
 
 interface Banner {
@@ -58,6 +58,7 @@ export default function AdminBanners() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
 
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     subtitle: '',
@@ -100,6 +101,28 @@ export default function AdminBanners() {
       setFormData({ title: '', subtitle: '', image_url: '', link_url: '', position: 'hero', is_active: true, sort_order: 0 });
     }
     setIsModalOpen(true);
+  };
+
+  
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingImage(true);
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const data = await apiFetch('/admin/upload-image', {
+        method: 'POST',
+        body: form,
+      });
+      setFormData({ ...formData, image_url: data.secure_url });
+    } catch (err) {
+      console.error('Upload failed', err);
+      alert('Failed to upload image.');
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -221,7 +244,26 @@ export default function AdminBanners() {
               </div>
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1">Image URL *</label>
-                <input type="url" required value={formData.image_url} onChange={e => setFormData({...formData, image_url: e.target.value})} className="w-full px-2 py-1.5 text-[12px] border border-slate-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" />
+                <div className="flex items-center gap-2">
+                  <input type="url" required value={formData.image_url} onChange={e => setFormData({...formData, image_url: e.target.value})} className="flex-1 px-2 py-1.5 text-[12px] border border-slate-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="Image URL..." />
+                  <div className="relative">
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={handleImageUpload}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                      disabled={uploadingImage}
+                    />
+                    <button 
+                      type="button"
+                      disabled={uploadingImage}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded text-[11px] font-medium transition-colors disabled:opacity-50"
+                    >
+                      {uploadingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                      <span>Upload</span>
+                    </button>
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1">Link URL</label>

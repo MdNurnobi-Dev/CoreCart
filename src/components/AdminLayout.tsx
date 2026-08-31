@@ -591,6 +591,22 @@ export default function AdminLayout() {
                       <span>Home Page</span>
                     </div>
                   </NavLink>
+                  <NavLink
+                    to="/admin/customize/checkout"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={({ isActive }) => 
+                      `flex items-center justify-between px-2 min-h-[26px] rounded-md text-[11px] font-medium transition-colors ${
+                        isActive 
+                          ? 'bg-blue-50 text-blue-700 font-semibold' 
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      }`
+                    }
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <ShoppingCart className="w-3 h-3 text-orange-500" />
+                      <span>Checkout Form</span>
+                    </div>
+                  </NavLink>
                 </div>
               )}
             </div>

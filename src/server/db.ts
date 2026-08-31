@@ -500,6 +500,19 @@ export class UnifiedDatabase implements IDatabase {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )`,
+      `CREATE TABLE IF NOT EXISTS order_status_audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+        previous_status TEXT,
+        new_status TEXT NOT NULL,
+        admin_id INTEGER,
+        admin_name TEXT DEFAULT 'Admin',
+        admin_email TEXT DEFAULT '',
+        notes TEXT DEFAULT '',
+        change_reason TEXT DEFAULT '',
+        ip_address TEXT DEFAULT '',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`,
       `CREATE INDEX IF NOT EXISTS idx_products_category ON products(category)`,
       `CREATE INDEX IF NOT EXISTS idx_products_price ON products(price)`,
       `CREATE INDEX IF NOT EXISTS idx_products_name ON products(name)`,
@@ -517,7 +530,8 @@ export class UnifiedDatabase implements IDatabase {
       `CREATE INDEX IF NOT EXISTS idx_categories_slug ON categories(slug)`,
       `CREATE INDEX IF NOT EXISTS idx_products_slug ON products(slug)`,
       `CREATE INDEX IF NOT EXISTS idx_custom_pages_slug ON custom_pages(slug)`,
-      `CREATE INDEX IF NOT EXISTS idx_coupons_code ON coupons(code)`
+      `CREATE INDEX IF NOT EXISTS idx_coupons_code ON coupons(code)`,
+      `CREATE INDEX IF NOT EXISTS idx_order_status_audit_logs_order ON order_status_audit_logs(order_id)`
     ];
 
     for (const stmt of schemaStatements) {
@@ -547,6 +561,42 @@ export class UnifiedDatabase implements IDatabase {
       if (!colNames.includes('low_stock_threshold')) {
         await this.tursoClient.execute("ALTER TABLE products ADD COLUMN low_stock_threshold INTEGER DEFAULT 5");
       }
+
+      // Orders table dynamic columns for live tracking and fulfillment
+      try {
+        const ordersInfo = await this.tursoClient.execute("PRAGMA table_info(orders)");
+        const ordersColNames = (ordersInfo.rows || []).map((r: any) => (r.name || r[1] || '').toString());
+        if (!ordersColNames.includes('tracking_number')) {
+          await this.tursoClient.execute("ALTER TABLE orders ADD COLUMN tracking_number TEXT");
+        }
+        if (!ordersColNames.includes('courier_name')) {
+          await this.tursoClient.execute("ALTER TABLE orders ADD COLUMN courier_name TEXT");
+        }
+        if (!ordersColNames.includes('current_location')) {
+          await this.tursoClient.execute("ALTER TABLE orders ADD COLUMN current_location TEXT DEFAULT ''");
+        }
+        if (!ordersColNames.includes('estimated_delivery')) {
+          await this.tursoClient.execute("ALTER TABLE orders ADD COLUMN estimated_delivery TEXT DEFAULT ''");
+        }
+        if (!ordersColNames.includes('tracking_history')) {
+          await this.tursoClient.execute("ALTER TABLE orders ADD COLUMN tracking_history TEXT DEFAULT '[]'");
+        }
+        if (!ordersColNames.includes('admin_notes')) {
+          await this.tursoClient.execute("ALTER TABLE orders ADD COLUMN admin_notes TEXT DEFAULT ''");
+        }
+        if (!ordersColNames.includes('customer_notes')) {
+          await this.tursoClient.execute("ALTER TABLE orders ADD COLUMN customer_notes TEXT DEFAULT ''");
+        }
+        if (!ordersColNames.includes('recipient_name')) {
+          await this.tursoClient.execute("ALTER TABLE orders ADD COLUMN recipient_name TEXT DEFAULT ''");
+        }
+        if (!ordersColNames.includes('customer_phone')) {
+          await this.tursoClient.execute("ALTER TABLE orders ADD COLUMN customer_phone TEXT DEFAULT ''");
+        }
+        if (!ordersColNames.includes('shipping_address')) {
+          await this.tursoClient.execute("ALTER TABLE orders ADD COLUMN shipping_address TEXT DEFAULT ''");
+        }
+      } catch (e) {}
 
       // Settings table dynamic columns
       try {
@@ -791,8 +841,14 @@ export class UnifiedDatabase implements IDatabase {
       );
       ALTER TABLE orders ADD COLUMN IF NOT EXISTS tracking_number VARCHAR(100);
       ALTER TABLE orders ADD COLUMN IF NOT EXISTS courier_name VARCHAR(100);
-      ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_address TEXT;
-      ALTER TABLE orders ADD COLUMN IF NOT EXISTS estimated_delivery TIMESTAMP;
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS current_location VARCHAR(255) DEFAULT '';
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS estimated_delivery VARCHAR(100) DEFAULT '';
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS tracking_history TEXT DEFAULT '[]';
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS admin_notes TEXT DEFAULT '';
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_notes TEXT DEFAULT '';
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS recipient_name VARCHAR(255) DEFAULT '';
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_phone VARCHAR(50) DEFAULT '';
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_address TEXT DEFAULT '';
       ALTER TABLE chat_settings ADD COLUMN IF NOT EXISTS firebase_config TEXT DEFAULT '{}';
 
       CREATE TABLE IF NOT EXISTS order_items (
@@ -877,6 +933,20 @@ export class UnifiedDatabase implements IDatabase {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
+      CREATE TABLE IF NOT EXISTS order_status_audit_logs (
+        id SERIAL PRIMARY KEY,
+        order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+        previous_status VARCHAR(50),
+        new_status VARCHAR(50) NOT NULL,
+        admin_id INTEGER,
+        admin_name VARCHAR(255) DEFAULT 'Admin',
+        admin_email VARCHAR(255) DEFAULT '',
+        notes TEXT DEFAULT '',
+        change_reason VARCHAR(255) DEFAULT '',
+        ip_address VARCHAR(100) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
       CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
       CREATE INDEX IF NOT EXISTS idx_products_price ON products(price);
       CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
@@ -887,6 +957,7 @@ export class UnifiedDatabase implements IDatabase {
       CREATE INDEX IF NOT EXISTS idx_orders_tracking ON orders(tracking_number);
       CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
       CREATE INDEX IF NOT EXISTS idx_order_items_product_id ON order_items(product_id);
+      CREATE INDEX IF NOT EXISTS idx_order_status_audit_logs_order ON order_status_audit_logs(order_id);
       CREATE INDEX IF NOT EXISTS idx_user_addresses_user_id ON user_addresses(user_id);
       CREATE INDEX IF NOT EXISTS idx_live_chat_messages_session ON live_chat_messages(session_id);
       CREATE INDEX IF NOT EXISTS idx_live_chat_sessions_time ON live_chat_sessions(last_message_time DESC);
