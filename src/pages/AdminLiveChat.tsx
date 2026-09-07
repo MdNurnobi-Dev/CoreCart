@@ -128,7 +128,7 @@ export default function AdminLiveChat() {
   // Settings State
   const [settings, setSettings] = useState({
     is_enabled: true,
-    welcome_message: 'Hello! 👋 Welcome to TechStore. How can we help you today?',
+    welcome_message: 'Hello! 👋 Welcome to CoreCart. How can we help you today?',
     agent_name: 'TechShop Support',
     agent_title: 'Customer Care Agent',
     auto_reply_message: 'Thank you for reaching out! Our team has received your message and will respond shortly.',
@@ -845,7 +845,7 @@ export default function AdminLiveChat() {
                     "Hello! How can I assist you today?",
                     "Could you please share your Order ID or Transaction ID?",
                     "We are checking this with our team right now!",
-                    "Thank you for contacting TechStore support."
+                    "Thank you for contacting CoreCart support."
                   ].map((quick, qIdx) => (
                     <button
                       key={qIdx}

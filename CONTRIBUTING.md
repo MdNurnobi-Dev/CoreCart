@@ -1,6 +1,6 @@
 # Contributing Guidelines (CONTRIBUTING.md)
 
-Thank you for your interest in contributing to the **TechStore E-Commerce Platform**!
+Thank you for your interest in contributing to the **CoreCart E-Commerce Platform**!
 
 ---
 
@@ -8,8 +8,8 @@ Thank you for your interest in contributing to the **TechStore E-Commerce Platfo
 
 1. **Fork & Clone**:
    ```bash
-   git clone https://github.com/<your-username>/techstore-ecommerce.git
-   cd techstore-ecommerce
+   git clone https://github.com/<your-username>/corecart-ecommerce.git
+   cd corecart-ecommerce
    ```
 2. **Install Dependencies**:
    ```bash

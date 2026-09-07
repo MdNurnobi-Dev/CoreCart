@@ -25,7 +25,7 @@ import Pagination from '../components/Pagination';
 import ConfirmDialog from '../components/ConfirmDialog';
 
 // Helper to evaluate PHP template tags in preview
-function parsePhpAndHtml(content: string, siteName: string = 'TechStore') {
+function parsePhpAndHtml(content: string, siteName: string = 'CoreCart') {
   if (!content) return '';
   let processed = content;
   
@@ -363,7 +363,7 @@ export default function AdminPages() {
 
   // EDIT / CREATE VIEW
   if (isEditing) {
-    const renderedHtml = parsePhpAndHtml(formData.content, settings?.site_name || 'TechStore');
+    const renderedHtml = parsePhpAndHtml(formData.content, settings?.site_name || 'CoreCart');
 
     return (
       <div className="space-y-4 max-w-6xl mx-auto pb-10">

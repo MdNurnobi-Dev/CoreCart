@@ -1,6 +1,6 @@
-# 📚 TechStore Production & Server Deployment Hub
+# 📚 CoreCart Production & Server Deployment Hub
 
-Welcome to the complete deployment, database configuration, and operations documentation for **TechStore**.
+Welcome to the complete deployment, database configuration, and operations documentation for **CoreCart**.
 
 This application is built with a high-performance **React 19 + Vite frontend** and a lightweight **Express + Node.js backend (`server.ts` / `dist/server.cjs`)**. It is architected to be **100% cloud-agnostic**, running on **cPanel Shared Hosting (Node.js Selector)**, **VPS (Ubuntu/Debian, Nginx, PM2)**, **Docker containers**, or serverless platforms.
 

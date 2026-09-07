@@ -28,16 +28,16 @@ export function SEO({
   url,
   canonical,
   type = 'website',
-  siteName = 'TechStore',
+  siteName = 'CoreCart',
   robots = 'index, follow, max-image-preview:large',
-  author = 'TechStore Team',
+  author = 'CoreCart Team',
   ogExtra = {},
   jsonLd,
   breadcrumbs
 }: SEOProps) {
   const defaultTitle = `${siteName} | Premium Tech & Gadgets Store`;
   const defaultDescription =
-    'TechStore is your premier destination for authentic laptops, smartphones, high-end accessories, and smart electronics with official warranty and rapid delivery.';
+    'CoreCart is your premier destination for authentic laptops, smartphones, high-end accessories, and smart electronics with official warranty and rapid delivery.';
   
   const currentTitle = title ? (title.includes(siteName) ? title : `${title} | ${siteName}`) : defaultTitle;
   const currentDescription = description || defaultDescription;
@@ -68,7 +68,7 @@ export function SEO({
     '@context': 'https://schema.org',
     '@type': 'OnlineStore',
     name: siteName,
-    url: typeof window !== 'undefined' ? window.location.origin : 'https://techstore.com',
+    url: typeof window !== 'undefined' ? window.location.origin : 'https://corecart.com',
     logo: image || 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=500&auto=format&fit=crop&q=80',
     sameAs: [
       'https://facebook.com',
@@ -79,7 +79,7 @@ export function SEO({
       '@type': 'SearchAction',
       target: {
         '@type': 'EntryPoint',
-        urlTemplate: `${typeof window !== 'undefined' ? window.location.origin : 'https://techstore.com'}/?search={search_term_string}`
+        urlTemplate: `${typeof window !== 'undefined' ? window.location.origin : 'https://corecart.com'}/?search={search_term_string}`
       },
       'query-input': 'required name=search_term_string'
     }
@@ -117,7 +117,7 @@ export function SEO({
       <meta name="twitter:description" content={currentDescription} />
       {image && <meta name="twitter:image" content={image} />}
       {imageAlt && <meta name="twitter:image:alt" content={imageAlt} />}
-      <meta name="twitter:site" content="@TechStore" />
+      <meta name="twitter:site" content="@CoreCart" />
 
       {/* Schema.org Structured Data (JSON-LD) */}
       <script type="application/ld+json">

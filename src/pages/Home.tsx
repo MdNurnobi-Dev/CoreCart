@@ -267,7 +267,7 @@ export default function Home() {
 
   // Dynamic SEO Configuration for Category, Search, or Storefront
   const dynamicSEO = useMemo(() => {
-    const siteName = settings?.site_name || 'TechStore';
+    const siteName = settings?.site_name || 'CoreCart';
     const siteUrl = typeof window !== 'undefined' ? window.location.origin : '';
     
     if (activeCategoryFilter) {

@@ -1,6 +1,6 @@
 # 🐧 VPS Deployment Guide (Ubuntu / Debian / Nginx / PM2)
 
-This guide provides the complete, production-grade deployment process for **TechStore** on a Virtual Private Server (VPS) running Ubuntu 20.04, 22.04, or 24.04.
+This guide provides the complete, production-grade deployment process for **CoreCart** on a Virtual Private Server (VPS) running Ubuntu 20.04, 22.04, or 24.04.
 
 ---
 
@@ -56,9 +56,9 @@ Create an application directory under `/var/www`:
 
 ```bash
 # Create directory and assign permissions
-sudo mkdir -p /var/www/techstore
-sudo chown -R $USER:$USER /var/www/techstore
-cd /var/www/techstore
+sudo mkdir -p /var/www/corecart
+sudo chown -R $USER:$USER /var/www/corecart
+cd /var/www/corecart
 
 # Option A: Clone from Git
 git clone https://github.com/your-username/your-repo.git .
@@ -73,7 +73,7 @@ git clone https://github.com/your-username/your-repo.git .
 Create and edit the production `.env` file:
 
 ```bash
-nano /var/www/techstore/.env
+nano /var/www/corecart/.env
 ```
 
 Paste your production configuration:
@@ -104,7 +104,7 @@ R2_PUBLIC_URL=""
 ## 🔨 Step 4: Install Dependencies & Build the Project
 
 ```bash
-cd /var/www/techstore
+cd /var/www/corecart
 
 # 1. Install dependencies
 npm install
@@ -122,10 +122,10 @@ Verify that `dist/server.cjs` exists.
 Start the application under PM2 process management:
 
 ```bash
-cd /var/www/techstore
+cd /var/www/corecart
 
 # Start the application using npm start or directly node dist/server.cjs
-pm2 start dist/server.cjs --name "techstore-app"
+pm2 start dist/server.cjs --name "corecart-app"
 
 # Save PM2 state so it restarts automatically on server reboot
 pm2 save
@@ -136,9 +136,9 @@ pm2 startup
 ### Useful PM2 Management Commands:
 ```bash
 pm2 status              # View running application status
-pm2 logs techstore-app  # View real-time application logs
-pm2 restart techstore-app # Restart application after update
-pm2 stop techstore-app  # Stop application
+pm2 logs corecart-app  # View real-time application logs
+pm2 restart corecart-app # Restart application after update
+pm2 stop corecart-app  # Stop application
 ```
 
 ---
@@ -148,7 +148,7 @@ pm2 stop techstore-app  # Stop application
 Create an Nginx configuration file for your domain:
 
 ```bash
-sudo nano /etc/nginx/sites-available/techstore
+sudo nano /etc/nginx/sites-available/corecart
 ```
 
 Paste the following Nginx configuration (replace `yourdomain.com` with your real domain):
@@ -179,7 +179,7 @@ Enable the configuration and test Nginx:
 
 ```bash
 # Enable site
-sudo ln -s /etc/nginx/sites-available/techstore /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/corecart /etc/nginx/sites-enabled/
 
 # Test syntax
 sudo nginx -t
@@ -212,9 +212,9 @@ sudo certbot renew --dry-run
 Whenever you pull changes or make updates, run:
 
 ```bash
-cd /var/www/techstore
+cd /var/www/corecart
 git pull origin main
 npm install
 npm run build
-pm2 restart techstore-app
+pm2 restart corecart-app
 ```

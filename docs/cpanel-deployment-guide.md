@@ -1,6 +1,6 @@
 # 🚀 cPanel Deployment Guide (Step-by-Step)
 
-This guide walks you through deploying **TechStore** onto any cPanel hosting account that provides the **"Setup Node.js App"** (CloudLinux / cPanel Passenger) feature.
+This guide walks you through deploying **CoreCart** onto any cPanel hosting account that provides the **"Setup Node.js App"** (CloudLinux / cPanel Passenger) feature.
 
 ---
 
@@ -15,8 +15,8 @@ This guide walks you through deploying **TechStore** onto any cPanel hosting acc
 
 1. On your local machine, zip the project repository *(excluding `node_modules` and `.git`)*.
 2. In **cPanel**, open **File Manager**.
-3. Create a folder in your home directory (for example: `/home/youruser/techstore`).
-   > ⚠️ **Important:** Do NOT upload into `public_html` directly. Keep your project source in `/home/youruser/techstore`.
+3. Create a folder in your home directory (for example: `/home/youruser/corecart`).
+   > ⚠️ **Important:** Do NOT upload into `public_html` directly. Keep your project source in `/home/youruser/corecart`.
 4. Upload your `.zip` archive into this folder and extract it.
 
 ---
@@ -31,7 +31,7 @@ This guide walks you through deploying **TechStore** onto any cPanel hosting acc
 | :--- | :--- | :--- |
 | **Node.js version** | `20.x` or `22.x` | Select modern LTS Node.js |
 | **Application mode** | `Production` | Optimized for speed and security |
-| **Application root** | `techstore` | Relative path to your uploaded folder |
+| **Application root** | `corecart` | Relative path to your uploaded folder |
 | **Application URL** | `yourdomain.com` | The domain or subdomain mapped to the app |
 | **Application startup file** | `dist/server.cjs` *(or `server.js`)* | The compiled entry point created after build |
 
@@ -44,7 +44,7 @@ This guide walks you through deploying **TechStore** onto any cPanel hosting acc
 You have two options to configure environment variables in cPanel:
 
 ### Option A: Direct `.env` file in the project root (Recommended & Easiest)
-1. In cPanel **File Manager**, navigate inside your project directory (e.g. `/home/youruser/techstore`).
+1. In cPanel **File Manager**, navigate inside your project directory (e.g. `/home/youruser/corecart`).
 2. Ensure "Show Hidden Files (dotfiles)" is enabled in File Manager Settings.
 3. Create a new file named `.env`.
 4. Paste the configuration template corresponding to your database choice (e.g., Turso Cloud SQLite or Neon PostgreSQL).
@@ -79,7 +79,7 @@ In the **Setup Node.js App** screen, scroll down to **"Environment variables"**,
 
 1. In the **Setup Node.js App** page, locate the command to enter your virtual environment. It looks like:
    ```bash
-   source /home/youruser/nodevenv/techstore/20/bin/activate && cd /home/youruser/techstore
+   source /home/youruser/nodevenv/corecart/20/bin/activate && cd /home/youruser/corecart
    ```
 2. Copy this command.
 3. Open **cPanel Terminal** (or connect via SSH) and paste the command.
@@ -113,9 +113,9 @@ cPanel automatically writes routing rules to `public_html/.htaccess`. If your do
 
 ```apache
 # DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
-PassengerAppRoot "/home/youruser/techstore"
+PassengerAppRoot "/home/youruser/corecart"
 PassengerBaseURI "/"
-PassengerNodejs "/home/youruser/nodevenv/techstore/20/bin/node"
+PassengerNodejs "/home/youruser/nodevenv/corecart/20/bin/node"
 PassengerAppType node
 PassengerStartupFile dist/server.cjs
 # DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END

@@ -12,6 +12,7 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
   }
 
   const response = await fetch(`${API_URL}${endpoint}`, {
+    credentials: 'include',
     ...options,
     headers
   });

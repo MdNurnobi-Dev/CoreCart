@@ -1,6 +1,6 @@
 # 🗄️ Database Configurations & Architecture Guide
 
-**TechStore** features a **Unified Database Engine Abstraction Layer** (`src/server/db.ts`) that automatically adapts to both **PostgreSQL** and **SQLite / Turso**. 
+**CoreCart** features a **Unified Database Engine Abstraction Layer** (`src/server/db.ts`) that automatically adapts to both **PostgreSQL** and **SQLite / Turso**. 
 
 You can switch between cloud providers or local databases simply by changing **environment variables** in `.env` without modifying a single line of application code.
 
@@ -26,14 +26,14 @@ Turso is a lightning-fast distributed SQLite database built on libSQL. It provid
 1. Go to [https://turso.tech](https://turso.tech) and sign up (Free).
 2. Install the Turso CLI or create a database in the Web Dashboard:
    ```bash
-   turso db create techstore-db --location sin
+   turso db create corecart-db --location sin
    ```
 3. Get the database URL and create an auth token:
    ```bash
-   turso db show techstore-db --url
-   # Example output: libsql://techstore-db-youruser.turso.io
+   turso db show corecart-db --url
+   # Example output: libsql://corecart-db-youruser.turso.io
 
-   turso db tokens create techstore-db
+   turso db tokens create corecart-db
    # Example output: eyJhbGciOiJFZERT...
    ```
 
@@ -80,22 +80,22 @@ If you want to host PostgreSQL directly on your cPanel or VPS server:
 
 ### In cPanel:
 1. In cPanel, open **PostgreSQL Database Wizard**.
-2. Create a database name: `cpaneluser_techstore`.
+2. Create a database name: `cpaneluser_corecart`.
 3. Create a database user and password.
 4. Grant all privileges to the user.
 
 ### In VPS (Ubuntu PostgreSQL):
 ```bash
 sudo apt install -y postgresql postgresql-contrib
-sudo -u postgres psql -c "CREATE DATABASE techstore;"
+sudo -u postgres psql -c "CREATE DATABASE corecart;"
 sudo -u postgres psql -c "CREATE USER techuser WITH PASSWORD 'StrongPassword#123';"
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE techstore TO techuser;"
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE corecart TO techuser;"
 ```
 
 ### `.env` Configuration:
 ```env
 DATABASE_TYPE="postgres"
-DATABASE_URL="postgresql://techuser:StrongPassword#123@localhost:5432/techstore"
+DATABASE_URL="postgresql://techuser:StrongPassword#123@localhost:5432/corecart"
 ```
 
 ---

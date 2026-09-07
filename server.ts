@@ -16,6 +16,9 @@ import 'dotenv/config';
 
 import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import express from 'express';
+import helmet from 'helmet';
+import { applyHelmetConfig } from './src/server/helmet-config.js';
+import cookieParser from 'cookie-parser';
 import multer from 'multer';
 import https from 'https';
 import http from 'http';
@@ -37,11 +40,22 @@ const _dirname = process.cwd();
 export const app = express();
 const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-ecommerce-key-998877';
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  throw new Error('FATAL SECURITY ERROR: JWT_SECRET is not defined in production environment.');
+}
 
 // Optimize network transfer & body parsing
 app.use(compression());
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(cookieParser());
+applyHelmetConfig(app);
+app.disable('x-powered-by');
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? (process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : false)
+    : function (origin, callback) { callback(null, true) },
+  credentials: true
+}));
+app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Trust proxy for accurate rate limiting when behind reverse proxy
@@ -59,7 +73,7 @@ const apiLimiter = rateLimit({
 // Stricter Auth rate limiter (prevents credential brute force and user registration spam)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // max 100 attempts per 15 minutes per IP
+  max: 15, // max 15 attempts per 15 minutes per IP (Stricter security)
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many login or registration attempts. Please try again after 15 minutes.' }
@@ -534,7 +548,7 @@ async function initDB() {
     const adminEmail = 'victorsteele428@gmail.com';
     const settingsCheck = await pool.query('SELECT COUNT(*) FROM settings');
     if (parseInt(settingsCheck.rows[0].count) === 0) {
-      await pool.query('INSERT INTO settings (site_name, footer_text) VALUES ($1, $2)', ['TechStore', '© 2026 TechStore. All rights reserved.']);
+      await pool.query('INSERT INTO settings (site_name, footer_text) VALUES ($1, $2)', ['CoreCart', '© 2026 CoreCart. All rights reserved.']);
     }
     // Also ensure image_url is TEXT
     try {
@@ -571,7 +585,7 @@ async function initDB() {
       console.error('Error seeding custom_pages:', e);
     }
 
-    const adminPass = await bcrypt.hash('RajPass##321', 10);
+    const adminPass = await bcrypt.hash('RajPass##321', 12);
     await pool.query(`
       INSERT INTO users (name, email, password, role)
       VALUES ('Admin', $1, $2, 'admin')
@@ -819,7 +833,7 @@ async function ensurePaymentTablesExist() {
           title: 'Direct Bank Deposit (DBBL / City Bank)',
           description: 'Direct electronic bank transfer to company account.',
           account_number: '1234567890123',
-          instruction: 'Account Name: TechStore Ltd, A/C: 1234567890123, Dutch-Bangla Bank Ltd, Gulshan Branch, Dhaka. Upload deposit slip or TrxID after transfer.',
+          instruction: 'Account Name: CoreCart Ltd, A/C: 1234567890123, Dutch-Bangla Bank Ltd, Gulshan Branch, Dhaka. Upload deposit slip or TrxID after transfer.',
           logo_url: '',
           is_active: true,
           fee_percent: 0,
@@ -955,18 +969,27 @@ async function ensureCheckoutFormSettingsTableExist() {
 // Auth: Register
 app.post('/api/auth/register', authLimiter, async (req, res) => {
   const { name, email, password, phone } = req.body;
+  if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
+    return res.status(400).json({ error: 'Valid email and password are required' });
+  }
   try {
     const check = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (check.rows.length > 0) {
       return res.status(400).json({ error: 'Email already exists' });
     }
-    const hashed = await bcrypt.hash(password, 10);
+    const hashed = await bcrypt.hash(password, 12);
     const result = await pool.query(
       'INSERT INTO users (name, email, password, phone, role) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, role, phone, avatar_url, created_at',
       [name, email, hashed, phone || '', 'customer']
     );
     const user = result.rows[0];
     const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+    });
     res.json({ token, user });
   } catch (err) {
     res.status(500).json({ error: 'Registration failed' });
@@ -976,6 +999,9 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
 // Auth: Login
 app.post('/api/auth/login', authLimiter, async (req, res) => {
   const { email, password } = req.body;
+  if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
+    return res.status(400).json({ error: 'Valid email and password are required' });
+  }
   try {
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (result.rows.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
@@ -984,6 +1010,12 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
     if (!match) return res.status(401).json({ error: 'Invalid credentials' });
     
     const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+    });
     res.json({ 
       token, 
       user: { 
@@ -1003,8 +1035,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
 
 // Auth Middleware
 const authenticateToken = (req: any, res: any, next: any) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const token = req.cookies?.token || (req.headers['authorization'] && req.headers['authorization'].split(' ')[1]);
   if (!token) return res.status(401).json({ error: 'Authentication token required' });
 
   jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
@@ -1016,8 +1047,7 @@ const authenticateToken = (req: any, res: any, next: any) => {
 
 // Optional Auth Middleware (attaches user if token is present and valid, allows guest otherwise)
 const authenticateOptionalToken = (req: any, res: any, next: any) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const token = req.cookies?.token || (req.headers['authorization'] && req.headers['authorization'].split(' ')[1]);
   if (!token) {
     req.user = null;
     return next();
@@ -1687,7 +1717,7 @@ const handleBulkOrderStatusUpdate = async (req: any, res: any) => {
     const updatedOrders: any[] = [];
     const nowIso = new Date().toISOString();
     const adminName = req.user?.name || req.user?.email || 'Admin';
-    const adminEmail = req.user?.email || 'admin@techstore.com';
+    const adminEmail = req.user?.email || 'admin@corecart.com';
     const adminId = req.user?.id || null;
     const ipAddress = req.ip || req.headers['x-forwarded-for'] || '';
 
@@ -1905,7 +1935,7 @@ app.put('/api/admin/orders/:id/status', authenticateAdmin, async (req: any, res:
       newStatus: nextStatus,
       adminId: req.user?.id || null,
       adminName: req.user?.name || req.user?.email || 'Admin',
-      adminEmail: req.user?.email || 'admin@techstore.com',
+      adminEmail: req.user?.email || 'admin@corecart.com',
       notes: logNoteText,
       changeReason: logReason,
       ipAddress: req.ip || req.headers['x-forwarded-for'] || ''
@@ -1993,7 +2023,7 @@ app.post('/api/admin/orders/:id/audit-logs', authenticateAdmin, async (req: any,
     }
 
     const adminName = req.user?.name || req.user?.email || 'Admin';
-    const adminEmail = req.user?.email || 'admin@techstore.com';
+    const adminEmail = req.user?.email || 'admin@corecart.com';
     const adminId = req.user?.id || null;
     const ip = req.ip || req.headers['x-forwarded-for'] || '';
 
@@ -2091,7 +2121,7 @@ app.post('/api/admin/orders/:id/checkpoints', authenticateAdmin, async (req: any
       newStatus: status || order.status,
       adminId: req.user?.id || null,
       adminName: req.user?.name || req.user?.email || 'Admin',
-      adminEmail: req.user?.email || 'admin@techstore.com',
+      adminEmail: req.user?.email || 'admin@corecart.com',
       notes: `Tracking checkpoint added: "${title}" (${location || order.current_location || 'Hub'})${note ? ` - ${note}` : ''}`,
       changeReason: 'Live Tracking Checkpoint Added',
       ipAddress: req.ip || req.headers['x-forwarded-for'] || ''
@@ -2152,7 +2182,7 @@ app.delete('/api/admin/orders/:id/checkpoints/:checkpointId', authenticateAdmin,
       newStatus: order.status,
       adminId: req.user?.id || null,
       adminName: req.user?.name || req.user?.email || 'Admin',
-      adminEmail: req.user?.email || 'admin@techstore.com',
+      adminEmail: req.user?.email || 'admin@corecart.com',
       notes: `Tracking checkpoint removed: "${removedCheckpoint?.title || checkpointId}"`,
       changeReason: 'Checkpoint Removed',
       ipAddress: req.ip || req.headers['x-forwarded-for'] || ''
@@ -2484,7 +2514,7 @@ app.put('/api/admin/manual-payments/:id/verify', authenticateAdmin, async (req: 
         newStatus: 'Paid',
         adminId: req.user?.id || null,
         adminName: req.user?.name || req.user?.email || 'Admin',
-        adminEmail: req.user?.email || 'admin@techstore.com',
+        adminEmail: req.user?.email || 'admin@corecart.com',
         notes: `Manual Payment (#${payment.gateway_name || 'Gateway'}, TrxID: ${payment.trx_id || 'N/A'}, Amount: ৳${payment.amount}) verified and approved by admin. Note: ${admin_note || 'Approved'}`,
         changeReason: 'Manual Payment Verified',
         ipAddress: req.ip || req.headers['x-forwarded-for'] || ''
@@ -2535,7 +2565,7 @@ app.put('/api/admin/manual-payments/:id/reject', authenticateAdmin, async (req: 
         newStatus: 'Payment Failed',
         adminId: req.user?.id || null,
         adminName: req.user?.name || req.user?.email || 'Admin',
-        adminEmail: req.user?.email || 'admin@techstore.com',
+        adminEmail: req.user?.email || 'admin@corecart.com',
         notes: `Manual Payment (${payment.gateway_name || 'Gateway'}, TrxID: ${payment.trx_id || 'N/A'}) rejected by admin. Reason: ${admin_note || 'TrxID invalid or unverified'}`,
         changeReason: 'Manual Payment Rejected',
         ipAddress: req.ip || req.headers['x-forwarded-for'] || ''
@@ -2683,7 +2713,7 @@ app.put('/api/user/security/password', authenticateToken, async (req: any, res: 
       return res.status(400).json({ error: 'Current password is incorrect' });
     }
 
-    const hashed = await bcrypt.hash(newPassword, 10);
+    const hashed = await bcrypt.hash(newPassword, 12);
     await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashed, req.user.id]);
     res.json({ success: true, message: 'Password updated successfully' });
   } catch (err) {
@@ -3937,7 +3967,7 @@ app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
 app.post('/api/admin/users', authenticateAdmin, async (req, res) => {
   const { name, email, password, role, status } = req.body;
   try {
-    const hashed = await bcrypt.hash(password, 10);
+    const hashed = await bcrypt.hash(password, 12);
     const result = await pool.query(
       'INSERT INTO users (name, email, password, role, status) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, role, status',
       [name, email, hashed, role || 'user', status || 'active']
@@ -3954,7 +3984,7 @@ app.put('/api/admin/users/:id', authenticateAdmin, async (req, res) => {
     const userId = parseInt(req.params.id, 10);
     let result;
     if (password) {
-      const hashed = await bcrypt.hash(password, 10);
+      const hashed = await bcrypt.hash(password, 12);
       result = await pool.query(
         'UPDATE users SET name = $1, email = $2, role = $3, status = $4, password = $5 WHERE id = $6 RETURNING id, name, email, role, status',
         [name, email, role, status, hashed, userId]
@@ -4512,7 +4542,7 @@ app.get('/api/chat-settings', async (req, res) => {
     if (result.rows.length === 0) {
       return res.json({
         is_enabled: true,
-        welcome_message: 'Hello! 👋 Welcome to TechStore. How can we help you today?',
+        welcome_message: 'Hello! 👋 Welcome to CoreCart. How can we help you today?',
         agent_name: 'TechShop Support',
         agent_title: 'Customer Care Agent',
         auto_reply_message: 'Thank you for reaching out! Our team has received your message on Telegram and will respond shortly.',
@@ -4620,7 +4650,7 @@ app.get('/api/admin/chat-settings', authenticateAdmin, async (req, res) => {
           history_retention_days, telegram_bot_token, telegram_chat_id, telegram_bot_username, telegram_notifications_enabled, quick_flows, firebase_config, firebase_config
         ) VALUES (
           true,
-          'Hello! 👋 Welcome to TechStore. How can we help you today?',
+          'Hello! 👋 Welcome to CoreCart. How can we help you today?',
           'TechShop Support',
           'Customer Care Agent',
           'Thank you for reaching out! Our team has received your message on Telegram and will respond shortly.',
@@ -4755,7 +4785,7 @@ app.post('/api/chat/notify-telegram', async (req, res) => {
 app.post('/api/admin/chat-settings/test-telegram', authenticateAdmin, async (req, res) => {
   const { bot_token, chat_id } = req.body;
   try {
-    const text = `✅ *TechStore Live Chat Test*\n\nTelegram Bot integration is connected successfully!\n🕒 Time: ${new Date().toLocaleString()}`;
+    const text = `✅ *CoreCart Live Chat Test*\n\nTelegram Bot integration is connected successfully!\n🕒 Time: ${new Date().toLocaleString()}`;
     const tgUrl = `https://api.telegram.org/bot${bot_token}/sendMessage`;
     const tgRes = await fetch(tgUrl, {
       method: 'POST',
@@ -5769,7 +5799,17 @@ app.post('/api/admin/backup/r2/upload', authenticateAdmin, async (req, res) => {
   }
 });
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = multer({ 
+  storage: multer.memoryStorage(), 
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only images are allowed.'));
+    }
+  }
+});
 
 app.post('/api/upload-image', authenticateToken, upload.single('file'), async (req: any, res: any) => {
   try {
@@ -6383,6 +6423,14 @@ setInterval(() => {
 setTimeout(() => {
   generateSitemap().catch(err => console.error(err));
 }, 5000);
+
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error('Unhandled Server Error:', err.stack || err.message);
+  res.status(err.status || 500).json({
+    error: 'An internal server error occurred.',
+    ...(process.env.NODE_ENV !== 'production' && { details: err.message })
+  });
+});
 
 async function startServer() {
   try {

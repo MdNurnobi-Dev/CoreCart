@@ -596,7 +596,7 @@ export default function AdminSettings() {
                     name="contact_email"
                     value={settings.contact_email || ''}
                     onChange={handleChange}
-                    placeholder="e.g. support@techstore.com"
+                    placeholder="e.g. support@corecart.com"
                     className="w-full bg-white border border-gray-200 rounded-lg h-[30px] px-2.5 text-[12px] text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
                   />
                   
@@ -643,7 +643,7 @@ export default function AdminSettings() {
                     rows={2}
                     value={settings.footer_text || ''}
                     onChange={handleChange}
-                    placeholder="e.g. © 2026 TechStore Inc. All rights reserved."
+                    placeholder="e.g. © 2026 CoreCart Inc. All rights reserved."
                     className="w-full bg-white border border-gray-200 rounded-lg p-2 text-[12px] text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
                   />
                 </div>
@@ -668,7 +668,7 @@ export default function AdminSettings() {
                     name="facebook_url"
                     value={settings.facebook_url || ''}
                     onChange={handleChange}
-                    placeholder="https://facebook.com/techstore"
+                    placeholder="https://facebook.com/corecart"
                     className="w-full bg-white border border-gray-200 rounded-lg h-[30px] px-2.5 text-[12px] text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
                   />
                 </div>
@@ -680,7 +680,7 @@ export default function AdminSettings() {
                     name="instagram_url"
                     value={settings.instagram_url || ''}
                     onChange={handleChange}
-                    placeholder="https://instagram.com/techstore"
+                    placeholder="https://instagram.com/corecart"
                     className="w-full bg-white border border-gray-200 rounded-lg h-[30px] px-2.5 text-[12px] text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
                   />
                 </div>
@@ -692,7 +692,7 @@ export default function AdminSettings() {
                     name="twitter_url"
                     value={settings.twitter_url || ''}
                     onChange={handleChange}
-                    placeholder="https://x.com/techstore"
+                    placeholder="https://x.com/corecart"
                     className="w-full bg-white border border-gray-200 rounded-lg h-[30px] px-2.5 text-[12px] text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
                   />
                 </div>
@@ -704,7 +704,7 @@ export default function AdminSettings() {
                     name="youtube_url"
                     value={settings.youtube_url || ''}
                     onChange={handleChange}
-                    placeholder="https://youtube.com/@techstore"
+                    placeholder="https://youtube.com/@corecart"
                     className="w-full bg-white border border-gray-200 rounded-lg h-[30px] px-2.5 text-[12px] text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
                   />
                 </div>
@@ -716,7 +716,7 @@ export default function AdminSettings() {
                     name="linkedin_url"
                     value={settings.linkedin_url || ''}
                     onChange={handleChange}
-                    placeholder="https://linkedin.com/company/techstore"
+                    placeholder="https://linkedin.com/company/corecart"
                     className="w-full bg-white border border-gray-200 rounded-lg h-[30px] px-2.5 text-[12px] text-gray-900 placeholder-gray-400 focus:border-blue-500 outline-none"
                   />
                 </div>

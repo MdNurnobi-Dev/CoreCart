@@ -1,6 +1,6 @@
 # ☁️ Cloudflare R2 Object Storage & Backup Guide
 
-**Cloudflare R2** provides S3-compatible, ultra-fast object storage with **zero egress bandwidth fees**. TechStore uses Cloudflare R2 for two main purposes:
+**Cloudflare R2** provides S3-compatible, ultra-fast object storage with **zero egress bandwidth fees**. CoreCart uses Cloudflare R2 for two main purposes:
 
 1. **High-Speed Product Media Storage:** All uploaded product images, banners, and logos stream directly from Cloudflare's global edge network.
 2. **Automated Cloud Database Backups:** Automatic daily/weekly snapshots of all database tables uploaded directly into your private R2 bucket.
@@ -12,7 +12,7 @@
 1. Log into your [Cloudflare Dashboard](https://dash.cloudflare.com/).
 2. In the left sidebar, navigate to **R2 Object Storage**.
 3. Click **Create bucket**.
-4. Enter a Bucket Name (e.g., `techstore-media`) and choose location **Automatic**.
+4. Enter a Bucket Name (e.g., `corecart-media`) and choose location **Automatic**.
 5. Click **Create bucket**.
 
 ---
@@ -70,7 +70,7 @@ In your bucket **Settings** -> **CORS Policy**, add this JSON:
 
 ---
 
-## 📝 Step 5: Connecting R2 to TechStore
+## 📝 Step 5: Connecting R2 to CoreCart
 
 You can configure Cloudflare R2 in **two ways**:
 
@@ -81,7 +81,7 @@ Add these keys to your `.env` file:
 R2_ACCOUNT_ID="your_cloudflare_account_id"
 R2_ACCESS_KEY_ID="your_r2_access_key_id"
 R2_SECRET_ACCESS_KEY="your_r2_secret_access_key"
-R2_BUCKET_NAME="techstore-media"
+R2_BUCKET_NAME="corecart-media"
 R2_PUBLIC_URL="https://pub-xxxxxxxxxxxxxx.r2.dev"
 ```
 

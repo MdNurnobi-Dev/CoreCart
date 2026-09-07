@@ -15,9 +15,9 @@ function processPhpTemplate(content: string, vars: Record<string, string> = {}) 
     if (fmt.includes('Y')) return new Date().getFullYear().toString();
     return new Date().toLocaleDateString();
   });
-  processed = processed.replace(/<\?php\s+echo\s+\$site_name;\s*\?>/gi, vars.site_name || 'TechStore');
+  processed = processed.replace(/<\?php\s+echo\s+\$site_name;\s*\?>/gi, vars.site_name || 'CoreCart');
   processed = processed.replace(/<\?php\s+echo\s+\$current_year;\s*\?>/gi, new Date().getFullYear().toString());
-  processed = processed.replace(/<\?php\s+echo\s+\$contact_email;\s*\?>/gi, vars.contact_email || 'support@techstore.com');
+  processed = processed.replace(/<\?php\s+echo\s+\$contact_email;\s*\?>/gi, vars.contact_email || 'support@corecart.com');
   processed = processed.replace(/<\?php\s+echo\s+\$contact_phone;\s*\?>/gi, vars.contact_phone || '+1 (800) 123-4567');
   processed = processed.replace(/<\?php\s+echo\s+\$currency_symbol;\s*\?>/gi, vars.currency_symbol || '$');
   processed = processed.replace(/<\?php\s+echo\s+htmlspecialchars\((.*?)\);\s*\?>/gi, '$1');
@@ -51,7 +51,7 @@ export default function CustomPage() {
         const data = await res.json();
         setPage(data);
         if (data.title) {
-          document.title = `${data.title} - ${settings?.site_name || 'TechStore'}`;
+          document.title = `${data.title} - ${settings?.site_name || 'CoreCart'}`;
         }
       } else {
         navigate('/'); // redirect if not found
@@ -75,8 +75,8 @@ export default function CustomPage() {
   if (!page) return null;
 
   const htmlContent = processPhpTemplate(page.content, {
-    site_name: settings?.site_name || 'TechStore',
-    contact_email: settings?.contact_email || 'support@techstore.com',
+    site_name: settings?.site_name || 'CoreCart',
+    contact_email: settings?.contact_email || 'support@corecart.com',
     contact_phone: settings?.contact_phone || '+1 (800) 123-4567',
     currency_symbol: settings?.currency_symbol || '$'
   });
@@ -85,7 +85,7 @@ export default function CustomPage() {
     <div className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
       <SEO 
         title={page.title} 
-        description={page.meta_description || `${page.title} - Official information and details from ${settings?.site_name || 'TechStore'}.`}
+        description={page.meta_description || `${page.title} - Official information and details from ${settings?.site_name || 'CoreCart'}.`}
         breadcrumbs={[
           { name: 'Home', url: '/' },
           { name: page.title, url: `/page/${slug}` }

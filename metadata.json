@@ -1,5 +1,5 @@
 {
-  "name": "TechStore E-Commerce & Live Support",
+  "name": "CoreCart E-Commerce & Live Support",
   "description": "Full-featured e-commerce platform with real-time Firebase & Telegram live chat support.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

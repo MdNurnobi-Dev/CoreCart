@@ -34,12 +34,12 @@ const DEFAULT_INVOICE_SETTINGS = {
   header_style: 'gradient', // gradient, minimal, solid
   
   // Company Details
-  company_name: 'TechStore Premium Ltd.',
+  company_name: 'CoreCart Premium Ltd.',
   company_phone: '+880 1712-345678',
-  company_email: 'billing@techstore.com.bd',
+  company_email: 'billing@corecart.com.bd',
   company_address: 'Level 12, High-Tech Tower, Karwan Bazar, Dhaka 1215',
   company_tax_id: 'BIN-1294817294-VAT',
-  company_website: 'www.techstore.com.bd',
+  company_website: 'www.corecart.com.bd',
   show_company_website: true,
 
   // Invoice Columns Configuration (toggles)
@@ -59,7 +59,7 @@ const DEFAULT_INVOICE_SETTINGS = {
 
   // Text & Label Customization
   invoice_title: 'OFFICIAL TAX INVOICE',
-  greeting_text: 'Thank you for choosing TechStore! Your premium tech order is confirmed.',
+  greeting_text: 'Thank you for choosing CoreCart! Your premium tech order is confirmed.',
   terms_conditions: '1. Warranty claims require presenting this invoice and original packaging.\n2. Returns are accepted within 7 days for manufacturing defects only.\n3. Goods sold are non-refundable after seals are broken.',
   show_signature_line: true,
   signature_title: 'Authorized Seal & Signature',
@@ -844,7 +844,7 @@ export default function AdminInvoiceTemplate() {
                     <div>
                       <span className="text-[8px] font-bold text-slate-400 uppercase block tracking-wider">Tracking Number</span>
                       <span className="font-mono font-bold text-slate-800">{MOCK_ORDER.tracking}</span>
-                      <p className="text-[9px] text-slate-400">TechStore Logistics</p>
+                      <p className="text-[9px] text-slate-400">CoreCart Logistics</p>
                     </div>
                   )}
 

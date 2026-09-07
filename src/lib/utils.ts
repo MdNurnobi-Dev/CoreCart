@@ -12,6 +12,7 @@ export async function apiFetch(endpoint: string, options?: RequestInit) {
   }
 
   const res = await fetch(url, {
+    credentials: 'include',
     ...options,
     headers: {
       ...headers,

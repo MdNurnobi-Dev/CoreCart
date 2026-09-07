@@ -46,7 +46,7 @@ export interface SupportMessage {
 export default function AdminSupportMessages() {
   const { token } = useAuth();
   const { settings } = useSettings();
-  const siteName = settings?.site_name || 'TechStore';
+  const siteName = settings?.site_name || 'CoreCart';
 
   const [messages, setMessages] = useState<SupportMessage[]>([]);
   const [loading, setLoading] = useState(true);

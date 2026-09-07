@@ -96,7 +96,7 @@ export default function AdminLogin() {
           </form>
         </div>
         <div className="bg-slate-50 border-t border-slate-100 p-4 text-center">
-          <p className="text-xs text-slate-500 font-medium">&copy; 2026 TechStore Admin</p>
+          <p className="text-xs text-slate-500 font-medium">&copy; 2026 CoreCart Admin</p>
         </div>
       </div>
     </div>

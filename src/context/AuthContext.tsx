@@ -46,14 +46,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Function to fetch latest profile from database
   const refreshUser = useCallback(async (): Promise<User | null> => {
     const currentToken = token || (typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null);
-    if (!currentToken) {
+    // Even if currentToken is missing from localStorage, the HttpOnly cookie might be present.
+    // If the user object exists in localStorage, it means they might be logged in via cookie.
+    const hasStoredUser = typeof localStorage !== 'undefined' ? !!localStorage.getItem('user') : false;
+    if (!currentToken && !hasStoredUser) {
       setLoading(false);
       return null;
     }
 
     try {
       const res = await fetch('/api/user/profile', {
-        headers: { 'Authorization': `Bearer ${currentToken}` }
+        credentials: 'include',
+        headers: currentToken ? { 'Authorization': `Bearer ${currentToken}` } : {}
       });
 
       if (res.ok) {
@@ -67,7 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('Session expired on server verification');
         setToken(null);
         setUser(null);
-        localStorage.removeItem('token');
+        // Token removed via backend or expiration
         localStorage.removeItem('user');
         return null;
       }
@@ -88,7 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(newToken);
     setUser(newUser);
     try {
-      localStorage.setItem('token', newToken);
+      // JWT is now managed via HttpOnly cookie
       localStorage.setItem('user', JSON.stringify(newUser));
     } catch (err) {
       console.error('Failed to save user session:', err);
@@ -111,7 +115,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(null);
     setUser(null);
     try {
-      localStorage.removeItem('token');
+      fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(console.error);
+      // Token removed via backend or expiration
       localStorage.removeItem('user');
     } catch (err) {
       console.error('Failed to clear session:', err);

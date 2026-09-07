@@ -110,7 +110,7 @@ export default function ChatWidget() {
 
   const [settings, setSettings] = useState<ChatSettings>({
     is_enabled: true,
-    welcome_message: 'Hello! 👋 Welcome to TechStore. How can we help you today?',
+    welcome_message: 'Hello! 👋 Welcome to CoreCart. How can we help you today?',
     agent_name: 'TechShop Support',
     agent_title: 'Customer Care Agent',
     auto_reply_message: 'Thank you for reaching out! Our support team will respond shortly.',
@@ -126,7 +126,7 @@ export default function ChatWidget() {
   // Proactive Visitor Greeting Animation (5-7s after arrival)
   useEffect(() => {
     // Check if teaser was already shown in this browsing session
-    const hasSeenTeaser = sessionStorage.getItem('techstore_chat_teaser_shown');
+    const hasSeenTeaser = sessionStorage.getItem('corecart_chat_teaser_shown');
     if (hasSeenTeaser || isOpen) return;
 
     // Trigger after 6 seconds (between 5-7s)
@@ -134,7 +134,7 @@ export default function ChatWidget() {
       if (!isOpen) {
         setShowTeaser(true);
         setIsTeaserPulsing(true);
-        sessionStorage.setItem('techstore_chat_teaser_shown', 'true');
+        sessionStorage.setItem('corecart_chat_teaser_shown', 'true');
 
         // Auto-dismiss teaser after 9 seconds of showing if unopened
         const dismissTimer = setTimeout(() => {
@@ -378,7 +378,7 @@ export default function ChatWidget() {
                 <span>Live Assistant</span>
               </div>
               <p className="text-slate-600 text-[12px] leading-relaxed">
-                {settings.welcome_message || 'Hello! 👋 Welcome to TechStore. How can we help you today?'}
+                {settings.welcome_message || 'Hello! 👋 Welcome to CoreCart. How can we help you today?'}
               </p>
             </div>
 

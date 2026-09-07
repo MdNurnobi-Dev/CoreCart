@@ -265,7 +265,7 @@ export class UnifiedDatabase implements IDatabase {
       `CREATE TABLE IF NOT EXISTS chat_settings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         is_enabled BOOLEAN DEFAULT 1,
-        welcome_message TEXT DEFAULT 'Hello! 👋 Welcome to TechStore. How can we help you today?',
+        welcome_message TEXT DEFAULT 'Hello! 👋 Welcome to CoreCart. How can we help you today?',
         agent_name TEXT DEFAULT 'TechShop Support',
         agent_title TEXT DEFAULT 'Customer Care Agent',
         auto_reply_message TEXT DEFAULT 'Thank you for reaching out! Our team has received your message and will respond shortly.',
@@ -710,7 +710,7 @@ export class UnifiedDatabase implements IDatabase {
       CREATE TABLE IF NOT EXISTS chat_settings (
         id SERIAL PRIMARY KEY,
         is_enabled BOOLEAN DEFAULT true,
-        welcome_message TEXT DEFAULT 'Hello! 👋 Welcome to TechStore. How can we help you today?',
+        welcome_message TEXT DEFAULT 'Hello! 👋 Welcome to CoreCart. How can we help you today?',
         agent_name VARCHAR(100) DEFAULT 'TechShop Support',
         agent_title VARCHAR(100) DEFAULT 'Customer Care Agent',
         auto_reply_message TEXT DEFAULT 'Thank you for reaching out! Our team has received your message and will respond shortly.',

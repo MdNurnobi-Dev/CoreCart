@@ -18,7 +18,7 @@ export function useProductSEO(
   return useMemo(() => {
     if (!product) return null;
 
-    const siteName = options.siteName || 'TechStore';
+    const siteName = options.siteName || 'CoreCart';
     const siteUrl = options.siteUrl || (typeof window !== 'undefined' ? window.location.origin : '');
     const canonicalUrl = `${siteUrl}${formatProductUrl(product)}`;
     const priceNum = typeof product.price === 'string' ? parseFloat(product.price) || 0 : product.price;
@@ -96,7 +96,7 @@ export function ProductSEO({
 }) {
   if (!product) return null;
 
-  const siteName = options.siteName || 'TechStore';
+  const siteName = options.siteName || 'CoreCart';
   const siteUrl = options.siteUrl || (typeof window !== 'undefined' ? window.location.origin : '');
   const canonicalUrl = `${siteUrl}${formatProductUrl(product)}`;
   const priceNum = typeof product.price === 'string' ? parseFloat(product.price) || 0 : product.price;

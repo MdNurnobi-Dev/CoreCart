@@ -1,6 +1,6 @@
 # Security Policy & Vulnerability Disclosure (SECURITY.md)
 
-We take the security and integrity of the **TechStore E-Commerce Platform** seriously.
+We take the security and integrity of the **CoreCart E-Commerce Platform** seriously.
 
 ---
 

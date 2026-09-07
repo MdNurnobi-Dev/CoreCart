@@ -1,5 +1,5 @@
 /**
- * Dynamic SEO & Structured Data Utility for TechStore
+ * Dynamic SEO & Structured Data Utility for CoreCart
  * Generates metadata, OpenGraph tags, Twitter Card tags, and Schema.org JSON-LD structured data.
  */
 
@@ -56,7 +56,7 @@ export interface DynamicSEOMeta {
  * Builds Schema.org BreadcrumbList JSON-LD
  */
 export function buildBreadcrumbSchema(breadcrumbs: BreadcrumbItem[], siteUrl: string = ''): Record<string, any> {
-  const origin = siteUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://techstore.com');
+  const origin = siteUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://corecart.com');
   
   return {
     '@context': 'https://schema.org',
@@ -85,9 +85,9 @@ export function buildProductSchema(
     brandName?: string;
   } = {}
 ): Record<string, any> {
-  const origin = options.siteUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://techstore.com');
+  const origin = options.siteUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://corecart.com');
   const currency = options.currency || 'USD';
-  const siteName = options.siteName || 'TechStore';
+  const siteName = options.siteName || 'CoreCart';
   const productUrl = `${origin}/product/${product.id || ''}`;
   const priceNum = typeof product.price === 'string' ? parseFloat(product.price) || 0 : product.price;
   const isAvailable = product.in_stock !== false && (product.stock === undefined || product.stock > 0);
@@ -143,9 +143,9 @@ export function buildCategorySchema(
     siteUrl?: string;
   } = {}
 ): Record<string, any> {
-  const origin = options.siteUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://techstore.com');
+  const origin = options.siteUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://corecart.com');
   const categoryUrl = `${origin}/?category=${encodeURIComponent(category.name)}`;
-  const siteName = options.siteName || 'TechStore';
+  const siteName = options.siteName || 'CoreCart';
 
   const schema: Record<string, any> = {
     '@context': 'https://schema.org',
@@ -182,7 +182,7 @@ export function getProductMeta(
     currencyCode?: string;
   } = {}
 ): DynamicSEOMeta {
-  const siteName = options.siteName || 'TechStore';
+  const siteName = options.siteName || 'CoreCart';
   const currencySymbol = options.currencySymbol || '$';
   const currencyCode = options.currencyCode || 'USD';
   const origin = options.siteUrl || (typeof window !== 'undefined' ? window.location.origin : '');
@@ -264,7 +264,7 @@ export function getCategoryMeta(
     topProducts?: Array<{ id: string | number; name: string; price?: number | string; image_url?: string }>;
   } = {}
 ): DynamicSEOMeta {
-  const siteName = options.siteName || 'TechStore';
+  const siteName = options.siteName || 'CoreCart';
   const origin = options.siteUrl || (typeof window !== 'undefined' ? window.location.origin : '');
   const cat = categoryName.trim();
   const countText = options.productCount ? ` (${options.productCount}+ items)` : '';

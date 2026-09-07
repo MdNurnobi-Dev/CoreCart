@@ -681,7 +681,7 @@ export default function OrderConfirmation({ order, isNewSubmission = true }: Ord
                   <p className="font-bold text-slate-800 leading-tight">
                     {invoiceSettings?.signature_title || 'Authorized Seal & Signature'}
                   </p>
-                  <p className="text-[8.5px] text-slate-400 mt-0.5">TechStore Premium Retail</p>
+                  <p className="text-[8.5px] text-slate-400 mt-0.5">CoreCart Premium Retail</p>
                 </div>
               </div>
             )}

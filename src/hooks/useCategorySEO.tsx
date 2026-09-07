@@ -14,7 +14,7 @@ export function useCategorySEO({
   categoryName,
   productCount,
   topProducts,
-  siteName = 'TechStore',
+  siteName = 'CoreCart',
   siteUrl
 }: UseCategorySEOOptions) {
   if (!categoryName) return null;

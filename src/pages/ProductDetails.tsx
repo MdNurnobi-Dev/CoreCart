@@ -126,7 +126,7 @@ export default function ProductDetails() {
         product={product}
         currentUrl={currentUrl}
         options={{
-          siteName: settings?.site_name || 'TechStore',
+          siteName: settings?.site_name || 'CoreCart',
           currencySymbol: currency,
           currencyCode: 'USD',
           siteUrl: typeof window !== 'undefined' ? window.location.origin : ''

@@ -107,8 +107,8 @@ export default function Support() {
   const [createdTicketId, setCreatedTicketId] = useState<number | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const siteName = settings?.site_name || 'TechStore';
-  const supportEmail = settings?.contact_email || 'support@techstore.com';
+  const siteName = settings?.site_name || 'CoreCart';
+  const supportEmail = settings?.contact_email || 'support@corecart.com';
   const supportPhone = settings?.contact_phone || '+1 (800) 123-4567';
   const supportPhoneAlt = settings?.contact_phone_alt;
   const supportAddress = settings?.contact_address;
