@@ -1,4 +1,6 @@
-<div align="center">
+const fs = require('fs');
+
+const readmeContent = `<div align="center">
   <img src="./assets/Core-Cart-Logo.png" alt="CoreCart Logo" width="150" />
   
   <h1>CoreCart</h1>
@@ -49,42 +51,42 @@
 - npm or yarn
 
 ### 1. Clone the Repository
-```bash
+\`\`\`bash
 git clone https://github.com/your-username/corecart.git
 cd corecart
-```
+\`\`\`
 
 ### 2. Install Dependencies
-```bash
+\`\`\`bash
 npm install
-```
+\`\`\`
 
 ### 3. Environment Configuration
-Create a `.env` file in the root directory and add your configurations (see `.env.example` for reference):
-```env
+Create a \`.env\` file in the root directory and add your configurations (see \`.env.example\` for reference):
+\`\`\`env
 NODE_ENV=development
 PORT=3000
 JWT_SECRET=your_super_secret_key
 # Database & Storage configs...
-```
+\`\`\`
 
 ### 4. Start the Development Server
-```bash
+\`\`\`bash
 npm run dev
-```
-Your application will be available at `http://localhost:3000`.
+\`\`\`
+Your application will be available at \`http://localhost:3000\`.
 
 ## 🏗️ Architecture & Scripts
 
-- `npm run dev`: Starts the Vite + Node.js development server with hot-reload.
-- `npm run build`: Bundles the React frontend and compiles the Express backend for production using ESBuild.
-- `npm start`: Runs the compiled production server.
+- \`npm run dev\`: Starts the Vite + Node.js development server with hot-reload.
+- \`npm run build\`: Bundles the React frontend and compiles the Express backend for production using ESBuild.
+- \`npm start\`: Runs the compiled production server.
 
 ## 🛡️ Security
 CoreCart takes security seriously. We enforce:
 - **Strict CSP:** Preventing unauthorized script executions.
 - **Rate Limiting:** Defending against brute-force and DDoS attacks.
-- **Encrypted Cookies:** Leveraging `HttpOnly`, `Secure`, and `SameSite` policies.
+- **Encrypted Cookies:** Leveraging \`HttpOnly\`, \`Secure\`, and \`SameSite\` policies.
 - **Input Sanitization:** Validating all incoming payloads to prevent SQL injection and NoSQL attacks.
 
 ## 🤝 Contributing
@@ -97,3 +99,6 @@ This project is [MIT](LICENSE) licensed.
 <div align="center">
   <i>Crafted with ❤️ by the open-source community.</i>
 </div>
+`;
+
+fs.writeFileSync('README.md', readmeContent);
